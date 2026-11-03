@@ -1,86 +1,98 @@
 # Benchmarks
 
-Baseline MB/s of the span APIs for the block cipher, CBC, CTR and CtrHmac, on each engine path of one machine.
+Baseline MB/s of the span APIs for the block cipher, CBC, CTR and CtrHmac, measured on one machine.
 
 Machine: Intel Core i7-12700H, 20 logical processors, Windows 11 Pro 10.0.26200, .NET 10.0.14.
 
-Rows are engine paths. Default leaves every instruction set the CPU reports on. NoGfni, NoAvx2 and NoHwIntrinsic set `DOTNET_EnableGFNI=0`, `DOTNET_EnableAVX2=0` and `DOTNET_EnableHWIntrinsic=0`. NoHwIntrinsic runs the scalar engine. MB/s is 10^6 payload bytes per second: the Size column for the mode rows, the block size for EncryptBlock.
+Setup: the default revision Rev2026 and engine ConstantTime, with a 32-byte key for both block sizes. Under Rev2026 that key length gives 9 rounds for Mkv128 and 7 rounds for Mkv256.
+
+Rows are kernel paths. Default sets no toggle, so it uses every kernel branch the CPU supports. NoHwIntrinsic (`DOTNET_EnableHWIntrinsic=0`) is the only toggle that changes the engine class: it runs the scalar engine. NoGfni (`DOTNET_EnableGFNI=0`) and NoAvx2 (`DOTNET_EnableAVX2=0`) keep the SIMD engine and switch one kernel branch each. NoGfni leaves AVX2 on, and NoAvx2 leaves GFNI on. No row runs the SSSE3-only path with both AVX2 and GFNI off.
+
+All four rows use BenchmarkDotNet's Default job. Each row is its own process with its environment toggle set. MB/s is 10^6 payload bytes per second: the Size column for the mode rows, and the block size for EncryptBlock.
+
+## Run
+
+Full matrix: `bash scripts/bench.sh --filter "*"`. It takes about an hour on this machine (60 minutes in the recorded run). Narrow it with a filter: `bash scripts/bench.sh --filter "*CbcEncrypt*"` for one case, or `bash scripts/bench.sh --filter "*CbcEncrypt(BlockSize: Mkv128*"` for one case and block size. `scripts/bench.ps1` takes the same arguments. `--job Short` adds a fifth job next to the four rows; it does not replace them.
 
 ## EncryptBlock
 
-Job: Default. One block per call, so the table has no size column.
+Jobs: all four, see the intro. One block per call, so the table has no size column.
 
 | Job | Block | MB/s |
 | --- | --- | ---: |
-| Default | Mkv128 | 27.2 |
-| Default | Mkv256 | 19.2 |
-| NoGfni | Mkv128 | 23.0 |
-| NoGfni | Mkv256 | 13.7 |
-| NoAvx2 | Mkv128 | 26.4 |
-| NoAvx2 | Mkv256 | 18.8 |
-| NoHwIntrinsic | Mkv128 | 0.3 |
-| NoHwIntrinsic | Mkv256 | 0.3 |
+| Default | Mkv128 | 27.24 |
+| Default | Mkv256 | 19.24 |
+| NoGfni | Mkv128 | 23.00 |
+| NoGfni | Mkv256 | 13.69 |
+| NoAvx2 | Mkv128 | 26.41 |
+| NoAvx2 | Mkv256 | 18.80 |
+| NoHwIntrinsic | Mkv128 | 0.28 |
+| NoHwIntrinsic | Mkv256 | 0.34 |
 
 ## CbcEncrypt
 
-Job: Default.
+Jobs: all four, see the intro.
 
 | Job | Block | 16 B | 1 KiB | 64 KiB | 1 MiB |
 | --- | --- | ---: | ---: | ---: | ---: |
-| Default | Mkv128 | 13.4 | 26.2 | 26.4 | 26.7 |
-| Default | Mkv256 | 9.3 | 18.4 | 19.0 | 18.9 |
-| NoGfni | Mkv128 | 11.3 | 22.2 | 22.6 | 23.0 |
-| NoGfni | Mkv256 | 6.7 | 13.3 | 13.7 | 13.8 |
-| NoAvx2 | Mkv128 | 12.9 | 25.4 | 25.7 | 26.1 |
-| NoAvx2 | Mkv256 | 9.0 | 18.1 | 18.6 | 18.6 |
-| NoHwIntrinsic | Mkv128 | 0.1 | 0.3 | 0.3 | 0.3 |
-| NoHwIntrinsic | Mkv256 | 0.2 | 0.3 | 0.4 | 0.3 |
+| Default | Mkv128 | 13.40 | 26.22 | 26.43 | 26.65 |
+| Default | Mkv256 | 9.26 | 18.37 | 19.04 | 18.91 |
+| NoGfni | Mkv128 | 11.32 | 22.25 | 22.59 | 23.03 |
+| NoGfni | Mkv256 | 6.73 | 13.30 | 13.67 | 13.81 |
+| NoAvx2 | Mkv128 | 12.91 | 25.36 | 25.75 | 26.10 |
+| NoAvx2 | Mkv256 | 9.02 | 18.06 | 18.62 | 18.58 |
+| NoHwIntrinsic | Mkv128 | 0.15 | 0.29 | 0.29 | 0.29 |
+| NoHwIntrinsic | Mkv256 | 0.17 | 0.34 | 0.35 | 0.35 |
 
 ## CbcDecrypt
 
-Job: Default.
+Jobs: all four, see the intro.
 
 | Job | Block | 16 B | 1 KiB | 64 KiB | 1 MiB |
 | --- | --- | ---: | ---: | ---: | ---: |
-| Default | Mkv128 | 13.0 | 85.3 | 90.9 | 91.7 |
-| Default | Mkv256 | 9.2 | 90.8 | 104.4 | 108.6 |
-| NoGfni | Mkv128 | 11.0 | 77.5 | 84.6 | 82.8 |
-| NoGfni | Mkv256 | 6.6 | 74.0 | 93.8 | 91.2 |
-| NoAvx2 | Mkv128 | 12.6 | 50.0 | 52.5 | 52.7 |
-| NoAvx2 | Mkv256 | 9.0 | 57.3 | 64.1 | 62.7 |
-| NoHwIntrinsic | Mkv128 | 0.1 | 0.3 | 0.3 | 0.3 |
-| NoHwIntrinsic | Mkv256 | 0.2 | 0.3 | 0.3 | 0.3 |
-
-Allocated is 0 B on every row of every table except one: CbcDecrypt, Default, Mkv256, 1 MiB, which shows 5 B per call from a one-time allocation that repeated calls do not make (they measured 0 B).
+| Default | Mkv128 | 13.02 | 85.30 | 90.95 | 91.66 |
+| Default | Mkv256 | 9.15 | 90.84 | 104.40 | 108.65 |
+| NoGfni | Mkv128 | 11.00 | 77.50 | 84.60 | 82.84 |
+| NoGfni | Mkv256 | 6.61 | 73.96 | 93.82 | 91.16 |
+| NoAvx2 | Mkv128 | 12.61 | 49.99 | 52.47 | 52.72 |
+| NoAvx2 | Mkv256 | 9.00 | 57.26 | 64.05 | 62.66 |
+| NoHwIntrinsic | Mkv128 | 0.15 | 0.29 | 0.30 | 0.29 |
+| NoHwIntrinsic | Mkv256 | 0.17 | 0.32 | 0.35 | 0.35 |
 
 ## CtrEncrypt
 
-Job: Default.
+Jobs: all four, see the intro.
 
 | Job | Block | 16 B | 1 KiB | 64 KiB | 1 MiB |
 | --- | --- | ---: | ---: | ---: | ---: |
-| Default | Mkv128 | 25.7 | 88.4 | 88.2 | 89.4 |
-| Default | Mkv256 | 9.2 | 104.4 | 105.0 | 104.1 |
-| NoGfni | Mkv128 | 22.1 | 83.6 | 82.4 | 81.2 |
-| NoGfni | Mkv256 | 6.6 | 88.4 | 91.0 | 90.0 |
-| NoAvx2 | Mkv128 | 24.5 | 52.1 | 51.4 | 51.6 |
-| NoAvx2 | Mkv256 | 8.8 | 62.1 | 62.4 | 62.4 |
-| NoHwIntrinsic | Mkv128 | 0.3 | 0.3 | 0.3 | 0.3 |
-| NoHwIntrinsic | Mkv256 | 0.2 | 0.4 | 0.3 | 0.3 |
+| Default | Mkv128 | 25.72 | 88.36 | 88.22 | 89.39 |
+| Default | Mkv256 | 9.18 | 104.42 | 105.01 | 104.07 |
+| NoGfni | Mkv128 | 22.14 | 83.63 | 82.38 | 81.24 |
+| NoGfni | Mkv256 | 6.56 | 88.35 | 90.98 | 90.02 |
+| NoAvx2 | Mkv128 | 24.48 | 52.12 | 51.39 | 51.57 |
+| NoAvx2 | Mkv256 | 8.84 | 62.13 | 62.36 | 62.45 |
+| NoHwIntrinsic | Mkv128 | 0.30 | 0.29 | 0.29 | 0.30 |
+| NoHwIntrinsic | Mkv256 | 0.17 | 0.35 | 0.35 | 0.34 |
 
 ## CtrHmacEncrypt
 
-Job: Default. Empty associated data.
+Jobs: all four, see the intro. Associated data is empty.
 
 | Job | Block | 16 B | 1 KiB | 64 KiB | 1 MiB |
 | --- | --- | ---: | ---: | ---: | ---: |
-| Default | Mkv128 | 18.1 | 82.3 | 85.9 | 86.3 |
-| Default | Mkv256 | 6.4 | 81.5 | 82.5 | 81.1 |
-| NoGfni | Mkv128 | 15.8 | 77.0 | 79.3 | 80.3 |
-| NoGfni | Mkv256 | 4.8 | 70.0 | 70.2 | 69.8 |
-| NoAvx2 | Mkv128 | 17.3 | 50.4 | 50.5 | 50.3 |
-| NoAvx2 | Mkv256 | 6.2 | 48.4 | 49.3 | 48.3 |
-| NoHwIntrinsic | Mkv128 | 0.3 | 0.3 | 0.3 | 0.3 |
-| NoHwIntrinsic | Mkv256 | 0.1 | 0.3 | 0.3 | 0.3 |
+| Default | Mkv128 | 18.09 | 82.26 | 85.89 | 86.25 |
+| Default | Mkv256 | 6.42 | 81.47 | 82.50 | 81.06 |
+| NoGfni | Mkv128 | 15.76 | 76.95 | 79.27 | 80.32 |
+| NoGfni | Mkv256 | 4.76 | 70.05 | 70.21 | 69.85 |
+| NoAvx2 | Mkv128 | 17.25 | 50.40 | 50.54 | 50.33 |
+| NoAvx2 | Mkv256 | 6.18 | 48.38 | 49.29 | 48.25 |
+| NoHwIntrinsic | Mkv128 | 0.30 | 0.30 | 0.29 | 0.29 |
+| NoHwIntrinsic | Mkv256 | 0.13 | 0.26 | 0.27 | 0.27 |
 
-The SIMD engine runs single-block calls 56 to 96 times faster than the scalar engine, and 1 MiB bulk rows about 300 times faster. GFNI off costs 7 to 29 percent at 1 MiB and on single blocks. AVX2 off costs about 40 percent on bulk CBC decrypt, CTR and CtrHmac, and 2 to 3 percent on single-block rows. Mkv256 runs fewer rounds at the 32-byte key used here (7 against 9 for Mkv128), so it moves 16 to 18 percent more bytes per second on bulk CTR and CBC decrypt. Each Mkv256 block call takes about 2.8 times as long as a Mkv128 call, so EncryptBlock and CBC encrypt lose about 30 percent MB/s.
+## Allocation
+
+In the full run, every span row shows `-` (0 B) except CbcDecrypt, Default, Mkv256, 1 MiB, which showed 5 B per call. A filtered re-run of that row showed `-` (0 B) for the Default row.
+
+## Reading the numbers
+
+Ratios below divide printed cells. Default over NoHwIntrinsic at 1 MiB is 297 to 316 for CtrEncrypt, CtrHmacEncrypt and CbcDecrypt, and 54 to 92 for CbcEncrypt; EncryptBlock is 57 to 97. NoGfni is 7 to 29 percent below Default on the 1 MiB rows and EncryptBlock. NoAvx2 is 40 to 43 percent below Default on the 1 MiB CbcDecrypt, CtrEncrypt and CtrHmacEncrypt rows, and 2 to 3 percent below on EncryptBlock and CbcEncrypt. At Default, Mkv256 is 16 to 19 percent faster than Mkv128 on 1 MiB CtrEncrypt and CbcDecrypt, 6 percent slower on 1 MiB CtrHmacEncrypt, and 29 percent slower on EncryptBlock and 1 MiB CbcEncrypt.
