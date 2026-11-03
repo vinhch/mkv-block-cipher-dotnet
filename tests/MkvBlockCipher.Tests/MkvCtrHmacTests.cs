@@ -297,7 +297,7 @@ public sealed class MkvCtrHmacTests
 
         Assert.Throws<ArgumentOutOfRangeException>(() => new MkvCtrHmac((MkvBlockSize)2, key, Revision));
         Assert.Throws<ArgumentOutOfRangeException>(() => new MkvCtrHmac(MkvBlockSize.Mkv128, key, (MkvRevision)2));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new MkvCtrHmac(MkvBlockSize.Mkv128, key, Revision, (MkvEngine)1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new MkvCtrHmac(MkvBlockSize.Mkv128, key, Revision, (MkvEngine)99));
     }
 
     [Theory]

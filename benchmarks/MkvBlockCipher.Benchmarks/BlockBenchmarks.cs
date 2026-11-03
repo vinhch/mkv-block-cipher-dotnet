@@ -16,11 +16,14 @@ public class BlockBenchmarks
     [Params(MkvBlockSize.Mkv128, MkvBlockSize.Mkv256)]
     public MkvBlockSize BlockSize { get; set; }
 
+    [Params(MkvEngine.ConstantTime, MkvEngine.VariableTime)]
+    public MkvEngine Engine { get; set; }
+
     [GlobalSetup]
     public void Setup()
     {
         // 32 bytes is a valid key for both block sizes.
-        _cipher = new MkvCipher(BlockSize, RandomNumberGenerator.GetBytes(32));
+        _cipher = new MkvCipher(BlockSize, RandomNumberGenerator.GetBytes(32), engine: Engine);
         _source = RandomNumberGenerator.GetBytes(_cipher.BlockSizeBytes);
         _destination = new byte[_cipher.BlockSizeBytes];
     }

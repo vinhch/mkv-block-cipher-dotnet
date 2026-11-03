@@ -12,7 +12,7 @@ All four rows use BenchmarkDotNet's Default job. Each row is its own process wit
 
 ## Run
 
-Full matrix: `bash scripts/bench.sh --filter "*"`. It takes about an hour on this machine (60 minutes in the recorded run). Narrow it with a filter: `bash scripts/bench.sh --filter "*CbcEncrypt*"` for one case, or `bash scripts/bench.sh --filter "*CbcEncrypt(BlockSize: Mkv128*"` for one case and block size. `scripts/bench.ps1` takes the same arguments. `--job Short` adds a fifth job next to the four rows; it does not replace them.
+Full matrix: `bash scripts/bench.sh --filter "*"`. It has 272 rows: two engines, four jobs. The ConstantTime-only matrix of 136 rows took 60 minutes in the recorded run, so expect about twice that. Narrow it with a filter: `bash scripts/bench.sh --filter "*CbcEncrypt*"` for one case, `bash scripts/bench.sh --filter "*CbcEncrypt(BlockSize: Mkv128*"` for one case and block size, or `--filter "*VariableTime*"` for the VariableTime rows. `scripts/bench.ps1` takes the same arguments. `--job Short` adds a fifth job next to the four rows; it does not replace them.
 
 ## EncryptBlock
 
@@ -96,3 +96,20 @@ In the full run, every span row shows `-` (0 B) except CbcDecrypt, Default, Mkv2
 ## Reading the numbers
 
 Ratios below divide printed cells. Default over NoHwIntrinsic at 1 MiB is 297 to 316 for CtrEncrypt, CtrHmacEncrypt and CbcDecrypt, and 54 to 92 for CbcEncrypt; EncryptBlock is 57 to 97. NoGfni is 7 to 29 percent below Default on the 1 MiB rows and EncryptBlock. NoAvx2 is 40 to 43 percent below Default on the 1 MiB CbcDecrypt, CtrEncrypt and CtrHmacEncrypt rows, and 2 to 3 percent below on EncryptBlock and CbcEncrypt. At Default, Mkv256 is 16 to 19 percent faster than Mkv128 on 1 MiB CtrEncrypt and CbcDecrypt, 6 percent slower on 1 MiB CtrHmacEncrypt, and 29 percent slower on EncryptBlock and 1 MiB CbcEncrypt.
+
+## VariableTime
+
+`MkvEngine.VariableTime` is variable time by design: its table lookups index memory by state bytes, so timing depends on the key and the input. Use it only for offline or batch work on a host with no untrusted co-resident code. Do not use it on multi-tenant servers, cloud VMs, or anywhere an attacker can measure timing.
+
+The speed gate is at least 1.5 times faster than ConstantTime on the Default job, for EncryptBlock or CBC encrypt at 1 KiB or 64 KiB. All six cases below clear it, so the engine is kept.
+
+| Case | Block | ConstantTime | VariableTime | Ratio |
+| --- | --- | ---: | ---: | ---: |
+| EncryptBlock | Mkv128 | 591.7 ns | 381.2 ns | 1.55 |
+| EncryptBlock | Mkv256 | 1,675.9 ns | 604.9 ns | 2.77 |
+| CbcEncrypt, 1 KiB | Mkv128 | 39.00 us | 19.53 us | 2.00 |
+| CbcEncrypt, 1 KiB | Mkv256 | 55.81 us | 18.19 us | 3.07 |
+| CbcEncrypt, 64 KiB | Mkv128 | 2.429 ms | 1.232 ms | 1.97 |
+| CbcEncrypt, 64 KiB | Mkv256 | 3.485 ms | 1.117 ms | 3.12 |
+
+Ratio is the ConstantTime mean divided by the VariableTime mean, both from the Default job. In the gate runs, the three toggle jobs stay within 10 percent of the Default row for VariableTime, since the engine uses no SIMD, and every gate row allocates 0 B per call.

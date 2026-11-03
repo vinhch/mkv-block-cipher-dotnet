@@ -12,6 +12,7 @@ internal static class EngineFactory
             MkvEngine.ConstantTime => X64Engine.IsSupported ? new X64Engine(parameters)
                 : Arm64Engine.IsSupported ? new Arm64Engine(parameters)
                 : new ScalarEngine(parameters),
+            MkvEngine.VariableTime => new TableEngine(parameters),
             _ => throw new ArgumentOutOfRangeException(nameof(engine)),
         };
 
@@ -28,5 +29,7 @@ internal static class EngineFactory
         {
             yield return new Arm64Engine(parameters);
         }
+
+        yield return new TableEngine(parameters);
     }
 }

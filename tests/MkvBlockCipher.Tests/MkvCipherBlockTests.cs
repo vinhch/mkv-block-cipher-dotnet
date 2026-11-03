@@ -43,6 +43,19 @@ public sealed class MkvCipherBlockTests
         Assert.Equal(plaintext, Convert.ToHexString(buffer));
     }
 
+    [Theory]
+    [MemberData(nameof(KnownAnswerVectors.Published), MemberType = typeof(KnownAnswerVectors))]
+    public void VariableTime_matches_published_vectors(
+        MkvBlockSize blockSize, MkvRevision revision, string key, string plaintext, string ciphertext)
+    {
+        using MkvCipher cipher = new(blockSize, Convert.FromHexString(key), revision, MkvEngine.VariableTime);
+        byte[] decrypted = new byte[cipher.BlockSizeBytes];
+
+        Assert.Equal(ciphertext, Encrypt(cipher, Convert.FromHexString(plaintext)));
+        cipher.DecryptBlock(Convert.FromHexString(ciphertext), decrypted);
+        Assert.Equal(plaintext, Convert.ToHexString(decrypted));
+    }
+
     [Fact]
     public void Default_revision_is_Rev2026()
     {

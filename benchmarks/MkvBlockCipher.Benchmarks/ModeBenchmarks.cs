@@ -24,6 +24,9 @@ public class ModeBenchmarks
     [Params(MkvBlockSize.Mkv128, MkvBlockSize.Mkv256)]
     public MkvBlockSize BlockSize { get; set; }
 
+    [Params(MkvEngine.ConstantTime, MkvEngine.VariableTime)]
+    public MkvEngine Engine { get; set; }
+
     [Params(16, 1024, 65536, 1048576)]
     public int Size { get; set; }
 
@@ -32,8 +35,8 @@ public class ModeBenchmarks
     {
         // 32 bytes is a valid key for both block sizes.
         byte[] key = RandomNumberGenerator.GetBytes(32);
-        _cipher = new MkvCipher(BlockSize, key);
-        _authenticated = new MkvCtrHmac(BlockSize, key);
+        _cipher = new MkvCipher(BlockSize, key, engine: Engine);
+        _authenticated = new MkvCtrHmac(BlockSize, key, engine: Engine);
 
         int blockBytes = _cipher.BlockSizeBytes;
         _plaintext = RandomNumberGenerator.GetBytes(Size);
