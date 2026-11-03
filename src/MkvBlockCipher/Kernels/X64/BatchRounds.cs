@@ -1,11 +1,13 @@
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
+using System.Security.Cryptography;
 using MkvBlockCipher.Primitives;
 
 namespace MkvBlockCipher.Kernels.X64;
 
 // 32 blocks in byte-sliced form: position p of every block sits in one Vector256, one block per byte lane.
 // Each layer works lane by lane, so a batch costs one pass of the round functions for all 32 blocks.
+// The stack copy is cleared; register values are not.
 internal static class BatchRounds
 {
     private const int WordsPerBlock = 4;
@@ -28,6 +30,7 @@ internal static class BatchRounds
 
         AddRoundKey(state, RoundKey(roundKeys, blockBytes, 2 * parameters.Rounds));
         ByteSlice.Scatter(sliced, blockBytes, destination);
+        CryptographicOperations.ZeroMemory(sliced);
     }
 
     internal static void Decrypt(
@@ -48,6 +51,7 @@ internal static class BatchRounds
         }
 
         ByteSlice.Scatter(sliced, blockBytes, destination);
+        CryptographicOperations.ZeroMemory(sliced);
     }
 
     private static void ForwardRound(Span<Vector256<byte>> state, int wordBytes, ReadOnlySpan<byte> k0, ReadOnlySpan<byte> k1)
@@ -110,6 +114,8 @@ internal static class BatchRounds
                 state[first + row] = mixed[row];
             }
         }
+
+        CryptographicOperations.ZeroMemory(MemoryMarshal.AsBytes(mixed));
     }
 
     private static void XWords(Span<Vector256<byte>> state, int wordBytes)

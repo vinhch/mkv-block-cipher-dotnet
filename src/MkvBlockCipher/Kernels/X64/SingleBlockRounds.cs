@@ -1,11 +1,14 @@
+using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
+using System.Security.Cryptography;
 using MkvBlockCipher.Primitives;
 
 namespace MkvBlockCipher.Kernels.X64;
 
 // One block held in 128-bit chunks. A chunk holds 16 / wordBytes whole words, so MixWords never crosses a chunk.
 // XWords crosses chunks only in its final combination.
+// The stack copy is cleared; register values are not.
 internal static class SingleBlockRounds
 {
     private const int ChunkBytes = 16;
@@ -19,6 +22,7 @@ internal static class SingleBlockRounds
         Load(block, chunks);
         ForwardRound(chunks, parameters.WordBytes, k0, k1);
         Store(chunks, block);
+        CryptographicOperations.ZeroMemory(MemoryMarshal.AsBytes(chunks));
     }
 
     internal static void Inverse(MkvParameters parameters, Span<byte> block, ReadOnlySpan<byte> k0, ReadOnlySpan<byte> k1)
@@ -27,6 +31,7 @@ internal static class SingleBlockRounds
         Load(block, chunks);
         InvertRound(chunks, parameters.WordBytes, k0, k1);
         Store(chunks, block);
+        CryptographicOperations.ZeroMemory(MemoryMarshal.AsBytes(chunks));
     }
 
     internal static void Encrypt(
@@ -46,6 +51,7 @@ internal static class SingleBlockRounds
 
         AddRoundKey(chunks, RoundKey(roundKeys, blockBytes, 2 * parameters.Rounds));
         Store(chunks, destination);
+        CryptographicOperations.ZeroMemory(MemoryMarshal.AsBytes(chunks));
     }
 
     internal static void Decrypt(
@@ -65,6 +71,7 @@ internal static class SingleBlockRounds
         }
 
         Store(chunks, destination);
+        CryptographicOperations.ZeroMemory(MemoryMarshal.AsBytes(chunks));
     }
 
     private static void ForwardRound(Span<Vector128<byte>> chunks, int wordBytes, ReadOnlySpan<byte> k0, ReadOnlySpan<byte> k1)
@@ -131,6 +138,8 @@ internal static class SingleBlockRounds
 
             chunks[chunk] = mixed;
         }
+
+        CryptographicOperations.ZeroMemory(MemoryMarshal.AsBytes(columns));
     }
 
     // Each byte column XORs across the words of the block, and every word takes that total.
