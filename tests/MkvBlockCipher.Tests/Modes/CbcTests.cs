@@ -321,6 +321,28 @@ public sealed class CbcTests
         Assert.Equal(new byte[blockBytes], destination);
     }
 
+    [Theory]
+    [InlineData(MkvBlockSize.Mkv128)]
+    [InlineData(MkvBlockSize.Mkv256)]
+    public void Padding_failure_zeroes_whole_destination_across_batches(MkvBlockSize blockSize)
+    {
+        using MkvCipher cipher = Create(blockSize);
+        int blockBytes = BlockBytes(blockSize);
+        byte[] iv = SeededBytes(blockBytes, 2);
+        int blocks = 3 * cipher.Engine.BatchBlocks + 5;
+        byte[] padded = PadReference(SeededBytes(PlaintextLengthFor(blocks, blockBytes), 3), blockBytes);
+        // Flips one pad byte in the last block, so its padding is invalid.
+        padded[^2] ^= 0x01;
+        byte[] ciphertext = ReferenceEncrypt(cipher, padded, iv);
+        byte[] destination = Filled(ciphertext.Length + 7, 0x5A);
+
+        CryptographicException exception =
+            Assert.Throws<CryptographicException>(() => cipher.DecryptCbc(ciphertext, iv, destination));
+
+        Assert.Equal(DecryptFailure, exception.Message);
+        Assert.Equal(new byte[destination.Length], destination);
+    }
+
     [Fact]
     public void Stripped_padding_bytes_are_zeroed()
     {
