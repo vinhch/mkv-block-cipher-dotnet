@@ -15,13 +15,16 @@ csharp_style_var_for_built_in_types = false:suggestion
 dotnet_style_qualification_for_field = false:warning
 dotnet_sort_system_directives_first = true
 dotnet_diagnostic.IDE0005.severity = warning
-# Analyzer pragmatics for an ASP.NET Core app (not a library), warnings-as-errors
-dotnet_diagnostic.CA1707.severity = none   # enum members use underscores (e.g. V1_7)
-dotnet_diagnostic.CA2007.severity = none   # ConfigureAwait not required in app code
-dotnet_diagnostic.CA1515.severity = none   # app, not library: public types are intended
+# Library, not app: every public type is API surface, so src keeps analyzer rules unsuppressed.
 
 [*.{csproj,props,targets,json,yml,yaml}]
 indent_size = 2
 
 [*.sh]
 end_of_line = lf
+
+[tests/**.cs]
+# Test names use underscores (Method_Scenario_Expected), which CA1707 rejects. IDE0005 needs
+# GenerateDocumentationFile, which stays off here so CS1591 does not flag test classes.
+dotnet_diagnostic.CA1707.severity = none
+dotnet_diagnostic.IDE0005.severity = none

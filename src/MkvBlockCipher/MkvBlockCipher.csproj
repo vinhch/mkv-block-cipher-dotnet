@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="MkvBlockCipher.Tests" />
+    <InternalsVisibleTo Include="MkvBlockCipher.Benchmarks" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MkvBlockCipher/MkvBlockCipher.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MkvBlockCipher.Tests/MkvBlockCipher.Tests.csproj" />
+  </Folder>
+</Solution>
