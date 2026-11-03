@@ -1,0 +1,64 @@
+using System.Runtime.Intrinsics.Arm;
+using MkvBlockCipher.Primitives;
+
+namespace MkvBlockCipher.Kernels.Arm64;
+
+// Full batches of 16 blocks run byte-sliced; the remaining blocks of a call run one at a time.
+internal sealed class Arm64Engine(MkvParameters parameters) : BlockEngine(parameters)
+{
+    // Every kernel looks up through AdvSimd table instructions, so the engine needs them.
+    internal static bool IsSupported => AdvSimd.Arm64.IsSupported;
+
+    // One block per byte lane of a Vector128.
+    internal override int BatchBlocks => 16;
+
+    internal override void Round(Span<byte> state, ReadOnlySpan<byte> k0, ReadOnlySpan<byte> k1)
+    {
+        RequireRound(state, k0, k1);
+        SingleBlockRounds.Forward(Parameters, state, k0, k1);
+    }
+
+    internal override void InverseRound(Span<byte> state, ReadOnlySpan<byte> k0, ReadOnlySpan<byte> k1)
+    {
+        RequireRound(state, k0, k1);
+        SingleBlockRounds.Inverse(Parameters, state, k0, k1);
+    }
+
+    internal override void EncryptBlocks(ReadOnlySpan<byte> roundKeys, ReadOnlySpan<byte> source, Span<byte> destination)
+    {
+        RequireBatch(roundKeys, source, destination);
+        int blockBytes = Parameters.BlockBytes;
+        int batchBytes = BatchBlocks * blockBytes;
+        int offset = 0;
+        for (; destination.Length - offset >= batchBytes; offset += batchBytes)
+        {
+            BatchRounds.Encrypt(
+                Parameters, roundKeys, source.Slice(offset, batchBytes), destination.Slice(offset, batchBytes));
+        }
+
+        for (; offset < destination.Length; offset += blockBytes)
+        {
+            SingleBlockRounds.Encrypt(
+                Parameters, roundKeys, source.Slice(offset, blockBytes), destination.Slice(offset, blockBytes));
+        }
+    }
+
+    internal override void DecryptBlocks(ReadOnlySpan<byte> roundKeys, ReadOnlySpan<byte> source, Span<byte> destination)
+    {
+        RequireBatch(roundKeys, source, destination);
+        int blockBytes = Parameters.BlockBytes;
+        int batchBytes = BatchBlocks * blockBytes;
+        int offset = 0;
+        for (; destination.Length - offset >= batchBytes; offset += batchBytes)
+        {
+            BatchRounds.Decrypt(
+                Parameters, roundKeys, source.Slice(offset, batchBytes), destination.Slice(offset, batchBytes));
+        }
+
+        for (; offset < destination.Length; offset += blockBytes)
+        {
+            SingleBlockRounds.Decrypt(
+                Parameters, roundKeys, source.Slice(offset, blockBytes), destination.Slice(offset, blockBytes));
+        }
+    }
+}

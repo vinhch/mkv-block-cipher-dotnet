@@ -1,3 +1,4 @@
+using MkvBlockCipher.Kernels.Arm64;
 using MkvBlockCipher.Kernels.X64;
 using MkvBlockCipher.Primitives;
 
@@ -8,7 +9,9 @@ internal static class EngineFactory
     internal static BlockEngine Create(MkvParameters parameters, MkvEngine engine) =>
         engine switch
         {
-            MkvEngine.ConstantTime => X64Engine.IsSupported ? new X64Engine(parameters) : new ScalarEngine(parameters),
+            MkvEngine.ConstantTime => X64Engine.IsSupported ? new X64Engine(parameters)
+                : Arm64Engine.IsSupported ? new Arm64Engine(parameters)
+                : new ScalarEngine(parameters),
             _ => throw new ArgumentOutOfRangeException(nameof(engine)),
         };
 
@@ -19,6 +22,11 @@ internal static class EngineFactory
         if (X64Engine.IsSupported)
         {
             yield return new X64Engine(parameters);
+        }
+
+        if (Arm64Engine.IsSupported)
+        {
+            yield return new Arm64Engine(parameters);
         }
     }
 }
