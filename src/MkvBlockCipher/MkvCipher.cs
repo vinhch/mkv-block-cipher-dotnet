@@ -8,7 +8,7 @@ namespace MkvBlockCipher;
 /// Keyed cipher for one 128-bit or 256-bit block per call. The key is expanded once in the constructor and not
 /// kept. Concurrent calls to the block methods are safe after construction; Dispose must not overlap them.
 /// </summary>
-public sealed class MkvCipher : IDisposable
+public sealed partial class MkvCipher : IDisposable
 {
     // Pinned so the GC cannot compact the array and leave an unzeroed copy of the round keys behind.
     private readonly byte[] _roundKeys;
