@@ -6,8 +6,6 @@ namespace MkvBlockCipher.Modes;
 // The stack copies are cleared; register values are not.
 internal static class Cbc
 {
-    private const string DecryptFailedMessage = "The data could not be decrypted.";
-
     // Serial by nature: each block needs the ciphertext of the block before it.
     internal static void Encrypt(
         BlockEngine engine,
@@ -73,7 +71,7 @@ internal static class Cbc
         if (unpaddedLength < 0)
         {
             CryptographicOperations.ZeroMemory(destination);
-            throw new CryptographicException(DecryptFailedMessage);
+            throw new CryptographicException(DecryptFailure.Message);
         }
 
         int plaintextLength = lastOffset + unpaddedLength;
