@@ -1,0 +1,27 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+indent_style = space
+trim_trailing_whitespace = true
+
+[*.{cs,csx}]
+indent_size = 4
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_prefer_braces = true:warning
+csharp_style_var_for_built_in_types = false:suggestion
+dotnet_style_qualification_for_field = false:warning
+dotnet_sort_system_directives_first = true
+dotnet_diagnostic.IDE0005.severity = warning
+# Analyzer pragmatics for an ASP.NET Core app (not a library), warnings-as-errors
+dotnet_diagnostic.CA1707.severity = none   # enum members use underscores (e.g. V1_7)
+dotnet_diagnostic.CA2007.severity = none   # ConfigureAwait not required in app code
+dotnet_diagnostic.CA1515.severity = none   # app, not library: public types are intended
+
+[*.{csproj,props,targets,json,yml,yaml}]
+indent_size = 2
+
+[*.sh]
+end_of_line = lf
