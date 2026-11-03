@@ -2,7 +2,8 @@ namespace MkvBlockCipher.Primitives;
 
 internal readonly record struct MkvParameters(int BlockBytes, int WordBytes, int KeyBytes, int Rounds)
 {
-    internal static MkvParameters Create(MkvBlockSize blockSize, int keyLength, MkvRevision revision)
+    internal static MkvParameters Create(
+        MkvBlockSize blockSize, int keyLength, MkvRevision revision, string keyParamName = "keyLength")
     {
         if (!Enum.IsDefined(blockSize))
         {
@@ -33,7 +34,7 @@ internal readonly record struct MkvParameters(int BlockBytes, int WordBytes, int
             (MkvBlockSize.Mkv256, 32, MkvRevision.Rev2026) => 7,
             (MkvBlockSize.Mkv256, 48, MkvRevision.Rev2026) => 8,
             (MkvBlockSize.Mkv256, 64, MkvRevision.Rev2026) => 9,
-            _ => throw new ArgumentException("Key length is not valid for the block size.", nameof(keyLength)),
+            _ => throw new ArgumentException("Key length is not valid for the block size.", keyParamName),
         };
 
         return new MkvParameters(blockBytes, wordBytes, keyLength, rounds);

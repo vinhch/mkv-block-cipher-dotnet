@@ -29,7 +29,7 @@ public sealed class MkvCipher : IDisposable
         MkvRevision revision = MkvRevision.Rev2026,
         MkvEngine engine = MkvEngine.ConstantTime)
     {
-        MkvParameters parameters = MkvParameters.Create(blockSize, key.Length, revision);
+        MkvParameters parameters = MkvParameters.Create(blockSize, key.Length, revision, nameof(key));
         Engine = EngineFactory.Create(parameters, engine);
         BlockSizeBytes = parameters.BlockBytes;
         _roundKeys = GC.AllocateArray<byte>((2 * parameters.Rounds + 1) * parameters.BlockBytes, pinned: true);

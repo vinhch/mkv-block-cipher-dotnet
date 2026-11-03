@@ -61,7 +61,18 @@ public sealed class MkvCipherBlockTests
     [InlineData(17)]
     public void Wrong_key_length_throws(int keyLength)
     {
-        Assert.Throws<ArgumentException>(() => Construct(MkvBlockSize.Mkv128, new byte[keyLength]));
+        AssertRejectsParameter("key", () => Construct(MkvBlockSize.Mkv128, new byte[keyLength]));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(16)]
+    [InlineData(24)]
+    [InlineData(33)]
+    [InlineData(65)]
+    public void Wrong_key_length_throws_for_Mkv256(int keyLength)
+    {
+        AssertRejectsParameter("key", () => Construct(MkvBlockSize.Mkv256, new byte[keyLength]));
     }
 
     [Theory]
