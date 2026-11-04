@@ -59,7 +59,7 @@ internal static class BatchRounds
     {
         int wordBytes = parameters.WordBytes;
         AddRoundKey(state, k0);
-        SubCells(state, SBoxTables.Forward);
+        SubCells(state, inverse: false);
         MixWords(
             state,
             wordBytes,
@@ -67,7 +67,7 @@ internal static class BatchRounds
             parameters.RotationStepBytes,
             0);
         AddRoundKey(state, k1);
-        SubCells(state, SBoxTables.Forward);
+        SubCells(state, inverse: false);
         XWords(state, wordBytes);
     }
 
@@ -76,7 +76,7 @@ internal static class BatchRounds
     {
         int wordBytes = parameters.WordBytes;
         XWords(state, wordBytes);
-        SubCells(state, SBoxTables.Inverse);
+        SubCells(state, inverse: true);
         AddRoundKey(state, k1);
         MixWords(
             state,
@@ -84,7 +84,7 @@ internal static class BatchRounds
             wordBytes == 4 ? MixMatrices.M4Inverse : MixMatrices.M8Inverse,
             0,
             parameters.RotationStepBytes);
-        SubCells(state, SBoxTables.Inverse);
+        SubCells(state, inverse: true);
         AddRoundKey(state, k0);
     }
 
@@ -97,11 +97,12 @@ internal static class BatchRounds
         }
     }
 
-    private static void SubCells(Span<Vector256<byte>> state, ReadOnlySpan<byte> table)
+    private static void SubCells(Span<Vector256<byte>> state, bool inverse)
     {
+        ReadOnlySpan<Vector256<byte>> rows = SBoxShuffle.Rows256(inverse);
         for (int position = 0; position < state.Length; position++)
         {
-            state[position] = SBoxShuffle.Lookup(state[position], table);
+            state[position] = SBoxShuffle.Lookup(state[position], rows);
         }
     }
 

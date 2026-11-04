@@ -22,14 +22,14 @@ public sealed class X64PrimitiveTests
         for (int start = 0; start < 256; start += 16)
         {
             ReadOnlySpan<byte> input = Values(start, 16);
-            Vector128<byte> output = SBoxShuffle.Lookup(Vector128.Create(input), table);
+            Vector128<byte> output = SBoxShuffle.Lookup(Vector128.Create(input), SBoxShuffle.Rows128(inverse));
             AssertLanes(Expected(table, input), output);
         }
 
         for (int start = 0; start < 256; start += 32)
         {
             ReadOnlySpan<byte> input = Values(start, 32);
-            Vector256<byte> output = SBoxShuffle.Lookup(Vector256.Create(input), table);
+            Vector256<byte> output = SBoxShuffle.Lookup(Vector256.Create(input), SBoxShuffle.Rows256(inverse));
             AssertLanes(Expected(table, input), output);
         }
     }
