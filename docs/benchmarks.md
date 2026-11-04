@@ -6,9 +6,9 @@ Machine: Intel Core i7-12700H, 20 logical processors, Windows 11 Pro 10.0.26200,
 
 Setup: the default revision Rev2026 and engine ConstantTime, with a 32-byte key for both block sizes. Under Rev2026 that key length gives 9 rounds for Mkv128 and 7 rounds for Mkv256.
 
-Rows are kernel paths. Default sets no toggle, so it uses every kernel branch the CPU supports. NoHwIntrinsic (`DOTNET_EnableHWIntrinsic=0`) is the only toggle that changes the engine class: it runs the scalar engine. NoGfni (`DOTNET_EnableGFNI=0`) and NoAvx2 (`DOTNET_EnableAVX2=0`) keep the SIMD engine and switch one kernel branch each. NoGfni leaves AVX2 on, and NoAvx2 leaves GFNI on. No row runs the SSSE3-only path with both AVX2 and GFNI off.
+Rows are kernel paths. Default sets no toggle, so it uses the best kernel branch the CPU supports. NoHwIntrinsic (`DOTNET_EnableHWIntrinsic=0`) is the only toggle that changes the engine class: it runs the scalar engine. NoGfni (`DOTNET_EnableGFNI=0`) and NoAvx2 (`DOTNET_EnableAVX2=0`) keep the SIMD engine and switch one kernel branch each. NoGfni leaves AVX2 on, and NoAvx2 leaves GFNI on. No row runs the SSSE3-only path with both AVX2 and GFNI off.
 
-All four rows use BenchmarkDotNet's Default job. Each row is its own process with its environment toggle set. MB/s is 10^6 payload bytes per second: the Size column for the mode rows, and the block size for EncryptBlock.
+All four jobs use BenchmarkDotNet's Default job. Each job is its own process with its environment toggle set. MB/s is 10^6 payload bytes per second: the Size column for the mode rows, and the block size for EncryptBlock.
 
 ## Run
 
@@ -95,7 +95,7 @@ In the full run, every span row shows `-` (0 B) except CbcDecrypt, Default, Mkv2
 
 ## Reading the numbers
 
-Ratios below divide printed cells. Default over NoHwIntrinsic at 1 MiB is 297 to 316 for CtrEncrypt, CtrHmacEncrypt and CbcDecrypt, and 54 to 92 for CbcEncrypt; EncryptBlock is 57 to 97. NoGfni is 7 to 29 percent below Default on the 1 MiB rows and EncryptBlock. NoAvx2 is 40 to 43 percent below Default on the 1 MiB CbcDecrypt, CtrEncrypt and CtrHmacEncrypt rows, and 2 to 3 percent below on EncryptBlock and CbcEncrypt. At Default, Mkv256 is 16 to 19 percent faster than Mkv128 on 1 MiB CtrEncrypt and CbcDecrypt, 6 percent slower on 1 MiB CtrHmacEncrypt, and 29 percent slower on EncryptBlock and 1 MiB CbcEncrypt.
+Ratios below divide printed cells. Default over NoHwIntrinsic at 1 MiB is 297 to 316 for CtrEncrypt, CtrHmacEncrypt and CbcDecrypt, and 54 to 92 for CbcEncrypt; EncryptBlock is 57 to 97. NoGfni is 7 to 29 percent below Default on the 1 MiB rows and EncryptBlock. NoAvx2 is 40 to 43 percent below Default on the 1 MiB CbcDecrypt, CtrEncrypt and CtrHmacEncrypt rows, and 2 to 3 percent below on EncryptBlock. On 1 MiB CbcEncrypt it is 1.7 to 2.1 percent below; at 16 B, Mkv128 CbcEncrypt is 3.7 percent below. At Default, Mkv256 is 16 to 19 percent faster than Mkv128 on 1 MiB CtrEncrypt and CbcDecrypt, 6 percent slower on 1 MiB CtrHmacEncrypt, and 29 percent slower on EncryptBlock and 1 MiB CbcEncrypt.
 
 ## VariableTime
 
@@ -112,4 +112,4 @@ The speed gate is at least 1.5 times faster than ConstantTime on the Default job
 | CbcEncrypt, 64 KiB | Mkv128 | 2.429 ms | 1.232 ms | 1.97 |
 | CbcEncrypt, 64 KiB | Mkv256 | 3.485 ms | 1.117 ms | 3.12 |
 
-Ratio is the ConstantTime mean divided by the VariableTime mean, both from the Default job. In the gate runs, the three toggle jobs stay within 10 percent of the Default row for VariableTime, since the engine uses no SIMD, and every gate row allocates 0 B per call.
+Ratio is the ConstantTime mean divided by the VariableTime mean, both from the Default job. Each ratio comes from one benchmark run on this machine, and the ConstantTime side depends on AVX2 and GFNI. In the gate runs, the three toggle jobs stay within 10 percent of the Default row for VariableTime, since the engine uses no SIMD, and every gate row allocates 0 B per call.
