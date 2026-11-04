@@ -9,7 +9,10 @@
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <Deterministic>true</Deterministic>
   </PropertyGroup>
-  <!-- SourceLink needs a remote URL: the owner sets MkvRepositoryUrl (the repository web URL) once the repo exists; until then it stays off. -->
+  <!-- SourceLink needs the repository web URL. Override MkvRepositoryUrl on the command line to point elsewhere. -->
+  <PropertyGroup>
+    <MkvRepositoryUrl Condition="'$(MkvRepositoryUrl)' == ''">https://github.com/vinhch/mkv-block-cipher-dotnet</MkvRepositoryUrl>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(MkvRepositoryUrl)' != ''">
     <RepositoryUrl>$(MkvRepositoryUrl)</RepositoryUrl>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
