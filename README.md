@@ -58,14 +58,7 @@ Use `MkvCtrHmac` for data from untrusted sources. Limits and key handling are in
 
 ## Revisions
 
-Two revisions share one algorithm and differ only in round count. The default is `Rev2026`.
-
-| Revision | Mkv128: 128, 192, 256-bit keys | Mkv256: 256, 384, 512-bit keys |
-| --- | ---: | ---: |
-| `Rev2024` | 6, 7, 8 rounds | 6, 7, 8 rounds |
-| `Rev2026` (default) | 7, 8, 9 rounds | 7, 8, 9 rounds |
-
-Neither revision is claimed to be official. The algorithm is described in [docs/algorithm.md](docs/algorithm.md).
+Two revisions, `Rev2024` and `Rev2026` (default), share one algorithm and differ in round count, which is 6 to 9. The round count for each block size and key length is in [docs/algorithm.md](docs/algorithm.md#revisions).
 
 ## Engines
 
