@@ -8,8 +8,6 @@
     <RepositoryType>git</RepositoryType>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <!-- Owner: MkvRepositoryUrl (the repository web URL) fills the package repository URL; source links need a git remote. -->
-    <RepositoryUrl Condition="'$(MkvRepositoryUrl)' != ''">$(MkvRepositoryUrl)</RepositoryUrl>
   </PropertyGroup>
   <ItemGroup>
     <None Include="..\..\LICENSE" Pack="true" PackagePath="\" />

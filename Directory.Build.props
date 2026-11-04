@@ -8,10 +8,14 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <!-- SourceLink needs a remote URL: the owner sets MkvRepositoryUrl (the repository web URL) once the repo exists; until then it stays off. -->
+  <PropertyGroup Condition="'$(MkvRepositoryUrl)' != ''">
+    <RepositoryUrl>$(MkvRepositoryUrl)</RepositoryUrl>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
   </PropertyGroup>
-  <ItemGroup>
+  <ItemGroup Condition="'$(MkvRepositoryUrl)' != ''">
     <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
   </ItemGroup>
 </Project>

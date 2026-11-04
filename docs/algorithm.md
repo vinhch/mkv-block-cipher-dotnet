@@ -60,14 +60,7 @@ The schedule uses the same round function as encryption. Its cost is 4R round ev
 
 ## Revisions
 
-Rev2024 and Rev2026 use the same algorithm. They differ only in R: Rev2026 adds one round at every key length. Rev2026 is the library default.
-
-| Revision | Mkv128 with 128, 192, 256-bit keys | Mkv256 with 256, 384, 512-bit keys |
-| --- | ---: | ---: |
-| Rev2024 | 6, 7, 8 | 6, 7, 8 |
-| Rev2026 (default) | 7, 8, 9 | 7, 8, 9 |
-
-Neither revision is claimed to be official.
+Rev2024 and Rev2026 use the same algorithm and differ only in the round count R. The round counts are in the [README revisions table](../README.md#revisions).
 
 ## Verification
 
