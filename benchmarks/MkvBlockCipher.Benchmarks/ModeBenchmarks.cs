@@ -33,9 +33,11 @@ public class ModeBenchmarks
     public static IEnumerable<MkvEngine> EngineValues => BenchSettings.Engines;
 
     // 1040 bytes is 65 Mkv128 blocks, which fills no whole batch, so the tail path runs.
-    public static IEnumerable<int> SizeValues => BenchSettings.Quick
-        ? new[] { 16, 1024, 1040, 1048576 }
-        : new[] { 16, 1024, 65536, 1048576 };
+    public static IEnumerable<int> SizeValues => BenchSettings.Precise
+        ? new[] { 1024, 1040, 1048576 }
+        : BenchSettings.Quick
+            ? new[] { 16, 1024, 1040, 1048576 }
+            : new[] { 16, 1024, 65536, 1048576 };
 
     [GlobalSetup]
     public void Setup()
