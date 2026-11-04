@@ -5,6 +5,10 @@ namespace MkvBlockCipher.Tests;
 
 public sealed class MkvCipherBlockTests
 {
+    private const string Rev2025Key16 = "000102030405060708090A0B0C0D0E0F";
+    private const string Rev2025Plaintext16 = "FFEEDDCCBBAA99887766554433221100";
+    private const string Rev2025Ciphertext16 = "F2795ECBA8F4D887F539EE8D8DF1141D";
+
     [Theory]
     [MemberData(nameof(KnownAnswerVectors.Published), MemberType = typeof(KnownAnswerVectors))]
     public void EncryptBlock_matches_published_vectors(
@@ -85,15 +89,15 @@ public sealed class MkvCipherBlockTests
     }
 
     [Fact]
-    public void Default_revision_is_Rev2026()
+    public void Default_revision_is_Rev2025()
     {
-        byte[] key = Convert.FromHexString(KnownAnswerVectors.Key16);
-        byte[] plaintext = Convert.FromHexString(KnownAnswerVectors.Plaintext16);
+        byte[] key = Convert.FromHexString(Rev2025Key16);
+        byte[] plaintext = Convert.FromHexString(Rev2025Plaintext16);
         using MkvCipher defaulted = new(MkvBlockSize.Mkv128, key);
-        using MkvCipher rev2026 = new(MkvBlockSize.Mkv128, key, MkvRevision.Rev2026);
+        using MkvCipher rev2025 = new(MkvBlockSize.Mkv128, key, MkvRevision.Rev2025);
 
-        Assert.Equal(KnownAnswerVectors.Mkv128Rev2026Ciphertext, Encrypt(defaulted, plaintext));
-        Assert.Equal(KnownAnswerVectors.Mkv128Rev2026Ciphertext, Encrypt(rev2026, plaintext));
+        Assert.Equal(Rev2025Ciphertext16, Encrypt(defaulted, plaintext));
+        Assert.Equal(Encrypt(rev2025, plaintext), Encrypt(defaulted, plaintext));
     }
 
     [Theory]
@@ -151,19 +155,17 @@ public sealed class MkvCipherBlockTests
     public void Undefined_engine_value_throws()
     {
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => Construct(MkvBlockSize.Mkv128, new byte[16], MkvRevision.Rev2026, (MkvEngine)99));
+            () => Construct(MkvBlockSize.Mkv128, new byte[16], MkvRevision.Rev2025, (MkvEngine)99));
     }
 
     [Fact]
     public void Caller_key_mutation_does_not_affect_cipher()
     {
-        byte[] key = Convert.FromHexString(KnownAnswerVectors.Key16);
-        using MkvCipher cipher = new(MkvBlockSize.Mkv128, key, MkvRevision.Rev2026);
+        byte[] key = Convert.FromHexString(Rev2025Key16);
+        using MkvCipher cipher = new(MkvBlockSize.Mkv128, key, MkvRevision.Rev2025);
         Array.Clear(key);
 
-        Assert.Equal(
-            KnownAnswerVectors.Mkv128Rev2026Ciphertext,
-            Encrypt(cipher, Convert.FromHexString(KnownAnswerVectors.Plaintext16)));
+        Assert.Equal(Rev2025Ciphertext16, Encrypt(cipher, Convert.FromHexString(Rev2025Plaintext16)));
     }
 
     [Fact]
@@ -190,7 +192,7 @@ public sealed class MkvCipherBlockTests
     public void Dispose_zeroes_round_keys()
     {
         using MkvCipher cipher = new(
-            MkvBlockSize.Mkv128, Convert.FromHexString(KnownAnswerVectors.Key16), MkvRevision.Rev2026);
+            MkvBlockSize.Mkv128, Convert.FromHexString(KnownAnswerVectors.Key16), MkvRevision.Rev2025);
         byte[] before = cipher.RoundKeys.ToArray();
         Assert.NotEqual(new byte[before.Length], before);
 
@@ -207,7 +209,7 @@ public sealed class MkvCipherBlockTests
     }
 
     private static void Construct(
-        MkvBlockSize blockSize, byte[] key, MkvRevision revision = MkvRevision.Rev2026, MkvEngine engine = MkvEngine.ConstantTime)
+        MkvBlockSize blockSize, byte[] key, MkvRevision revision = MkvRevision.Rev2025, MkvEngine engine = MkvEngine.ConstantTime)
     {
         using MkvCipher cipher = new(blockSize, key, revision, engine);
     }

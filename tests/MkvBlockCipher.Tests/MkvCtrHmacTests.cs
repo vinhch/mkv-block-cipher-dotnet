@@ -14,8 +14,8 @@ public sealed class MkvCtrHmacTests
     private const string DecryptFailure = "The data could not be decrypted.";
 
     // Frozen output: any change here breaks stored ciphertexts.
-    private const string FrozenCiphertextHex = "C8A0C3CED9FA95FD592AC0FA694E";
-    private const string FrozenTagHex = "46EB1FDC12A26D319CC58D66F6D4076FBF623F48DACF89533412E5425C60DD07";
+    private const string FrozenCiphertextHex = "E0ADDEBF5F0A205F8C5E712D5A69";
+    private const string FrozenTagHex = "802C647B6290E7F9A1D87CAA783137A775B82C6267E2C3F8C26B6FA0B8FCF502";
 
     public static TheoryData<MkvBlockSize, int, int> RoundTripCases()
     {
@@ -114,6 +114,21 @@ public sealed class MkvCtrHmacTests
                 }
             }
         }
+    }
+
+    [Fact]
+    public void Default_revision_produces_frozen_vector()
+    {
+        byte[] key = Enumerable.Range(0, KeyLength).Select(i => (byte)i).ToArray();
+        byte[] plaintext = "MkvBlockCipher"u8.ToArray();
+        byte[] ciphertext = new byte[plaintext.Length];
+        byte[] tag = new byte[MkvCtrHmac.TagSizeBytes];
+        using MkvCtrHmac mac = new(MkvBlockSize.Mkv128, key);
+
+        mac.Encrypt(new byte[12], plaintext, ciphertext, tag);
+
+        Assert.Equal(FrozenCiphertextHex, Convert.ToHexString(ciphertext));
+        Assert.Equal(FrozenTagHex, Convert.ToHexString(tag));
     }
 
     [Fact]

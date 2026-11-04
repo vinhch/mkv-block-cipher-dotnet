@@ -32,7 +32,7 @@ internal static class KeySchedule
         Span<byte> counter = scratch.Slice(2 * blockBytes, blockBytes);
         ReadOnlySpan<byte> zero = scratch.Slice(3 * blockBytes, blockBytes);
 
-        // Zero constants leave each counter block as the bare counter, which Rev2024 and Rev2026 use.
+        // Zero constants leave each counter block as the bare counter, which Rev2024 uses.
         ReadOnlySpan<byte> leftConstant = parameters.UsesRoundConstants ? RoundConstants.Left(blockBytes) : zero;
         ReadOnlySpan<byte> rightConstant = parameters.UsesRoundConstants ? RoundConstants.Right(blockBytes) : zero;
 

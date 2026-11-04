@@ -62,7 +62,7 @@ Namespace `MkvBlockCipher`. Every type and member has XML documentation; this se
 | Type | Values |
 | --- | --- |
 | `MkvBlockSize` | `Mkv128` (16-byte block), `Mkv256` (32-byte block) |
-| `MkvRevision` | `Rev2024`, `Rev2026` (default). See [Revisions](#revisions) |
+| `MkvRevision` | `Rev2024`, `Rev2025` (default). See [Revisions](#revisions) |
 | `MkvEngine` | `ConstantTime` (default), `VariableTime`. See [Engines](#engines) |
 
 Key lengths are 16, 24 or 32 bytes for `Mkv128`, and 32, 48 or 64 bytes for `Mkv256`.
@@ -73,7 +73,7 @@ Block cipher and modes under one key. Implements `IDisposable`.
 
 | Member | Notes |
 | --- | --- |
-| `MkvCipher(MkvBlockSize, ReadOnlySpan<byte> key, MkvRevision = Rev2026, MkvEngine = ConstantTime)` | Runs the key schedule once. The key is not kept |
+| `MkvCipher(MkvBlockSize, ReadOnlySpan<byte> key, MkvRevision = Rev2025, MkvEngine = ConstantTime)` | Runs the key schedule once. The key is not kept |
 | `int BlockSizeBytes` | 16 or 32 |
 | `void EncryptBlock(source, destination)`, `void DecryptBlock(source, destination)` | One block, no mode |
 | `int GetCiphertextLengthCbc(int plaintextLength)` | CBC output size. PKCS#7 always adds between 1 and `BlockSizeBytes` bytes |
@@ -88,7 +88,7 @@ Authenticated mode: CTR, then HMAC-SHA256 over the associated data, the nonce an
 
 | Member | Notes |
 | --- | --- |
-| `MkvCtrHmac(MkvBlockSize, ReadOnlySpan<byte> key, MkvRevision = Rev2026, MkvEngine = ConstantTime)` | The key must be exactly 32 bytes. Sub-keys are derived with HKDF |
+| `MkvCtrHmac(MkvBlockSize, ReadOnlySpan<byte> key, MkvRevision = Rev2025, MkvEngine = ConstantTime)` | The key must be exactly 32 bytes. Sub-keys are derived with HKDF |
 | `int NonceSizeBytes` | `BlockSizeBytes - 4`: 12 or 28 |
 | `const int TagSizeBytes` | 32 |
 | `void Encrypt(nonce, plaintext, ciphertext, tag, associatedData = default)` | `ciphertext` has the length of `plaintext` |
@@ -115,7 +115,7 @@ Authenticated mode: CTR, then HMAC-SHA256 over the associated data, the nonce an
 
 ## Revisions
 
-Two revisions, `Rev2024` and `Rev2026` (default), share one algorithm and differ in round count, which is 6 to 9. The round count for each block size and key length is in [docs/algorithm.md](docs/algorithm.md#revisions).
+Two revisions, `Rev2024` and `Rev2025` (default), share one algorithm. They differ in round count, which is 6 to 9. `Rev2025` also rotates each word in MixWords and adds round constants to the key schedule. The round count for each block size and key length is in [docs/algorithm.md](docs/algorithm.md#revisions).
 
 ## Engines
 
@@ -132,7 +132,7 @@ Two revisions, `Rev2024` and `Rev2026` (default), share one algorithm and differ
 
 ## Benchmarks
 
-Throughput in MB/s (10^6 bytes per second) on a 1 MiB payload, with `ConstantTime`, `Rev2026` and the BenchmarkDotNet Default job (no kernel toggles, so the CPU's preferred kernel path runs). Measured on one Intel Core i7-12700H machine running Windows 11.
+Throughput in MB/s (10^6 bytes per second) on a 1 MiB payload, with `ConstantTime`, `Rev2026` (the previous default, not re-measured for `Rev2025`) and the BenchmarkDotNet Default job (no kernel toggles, so the CPU's preferred kernel path runs). Measured on one Intel Core i7-12700H machine running Windows 11.
 
 | Operation | Mkv128 | Mkv256 |
 | --- | ---: | ---: |

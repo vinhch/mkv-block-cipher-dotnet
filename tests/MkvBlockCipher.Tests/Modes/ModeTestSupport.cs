@@ -6,7 +6,7 @@ namespace MkvBlockCipher.Tests.Modes;
 
 internal static class ModeTestSupport
 {
-    public const MkvRevision Revision = MkvRevision.Rev2026;
+    public const MkvRevision Revision = MkvRevision.Rev2025;
 
     public static readonly MkvBlockSize[] BlockSizes = [MkvBlockSize.Mkv128, MkvBlockSize.Mkv256];
 

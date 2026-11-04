@@ -20,14 +20,14 @@ public sealed partial class MkvCipher : IDisposable
     /// <param name="key">
     /// Key bytes. Mkv128 takes 16, 24 or 32 bytes; Mkv256 takes 32, 48 or 64 bytes.
     /// </param>
-    /// <param name="revision">Round-count revision. Defaults to <see cref="MkvRevision.Rev2026"/>.</param>
+    /// <param name="revision">Algorithm revision. Defaults to <see cref="MkvRevision.Rev2025"/>.</param>
     /// <param name="engine">Engine implementation. Defaults to <see cref="MkvEngine.ConstantTime"/>.</param>
     /// <exception cref="ArgumentException">The key length is not valid for <paramref name="blockSize"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException">An enum argument is not a defined value.</exception>
     public MkvCipher(
         MkvBlockSize blockSize,
         ReadOnlySpan<byte> key,
-        MkvRevision revision = MkvRevision.Rev2026,
+        MkvRevision revision = MkvRevision.Rev2025,
         MkvEngine engine = MkvEngine.ConstantTime)
     {
         MkvParameters parameters = MkvParameters.Create(blockSize, key.Length, revision, nameof(key));

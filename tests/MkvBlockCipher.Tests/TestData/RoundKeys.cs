@@ -28,14 +28,6 @@ public static class RoundKeys
         "5B40A6BF1250B1E89A894F39F4F45B9D",
     ];
 
-    // The key schedule for R=7 starts with the R=6 keys, so RK[0..12] are shared.
-    private static readonly string[] Mkv128Key16R7 =
-    [
-        .. Mkv128Key16R6,
-        "106C2567A743EE1E9E320FBDBDEB474E",
-        "F583771B15EDD47667B60729E48132C4",
-    ];
-
     private static readonly string[] Mkv128Key24R7 =
     [
         "0102030405060708090A0B0C0D0E0F11",
@@ -136,7 +128,6 @@ public static class RoundKeys
     public static TheoryData<MkvBlockSize, MkvRevision, string, string[]> Published { get; } = new()
     {
         { MkvBlockSize.Mkv128, MkvRevision.Rev2024, Key16, Mkv128Key16R6 },
-        { MkvBlockSize.Mkv128, MkvRevision.Rev2026, Key16, Mkv128Key16R7 },
         { MkvBlockSize.Mkv128, MkvRevision.Rev2024, Key24, Mkv128Key24R7 },
         { MkvBlockSize.Mkv128, MkvRevision.Rev2024, Key32, Mkv128Key32R8 },
         { MkvBlockSize.Mkv256, MkvRevision.Rev2024, Key32, Mkv256Key32R6 },

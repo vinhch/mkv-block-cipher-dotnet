@@ -33,7 +33,6 @@ internal static class CtrHmacKeys
         int year = revision switch
         {
             MkvRevision.Rev2024 => 2024,
-            MkvRevision.Rev2026 => 2026,
             MkvRevision.Rev2025 => 2025,
             _ => throw new ArgumentOutOfRangeException(nameof(revision)),
         };

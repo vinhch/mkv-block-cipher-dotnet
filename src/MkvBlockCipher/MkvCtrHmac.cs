@@ -31,14 +31,14 @@ public sealed class MkvCtrHmac : IDisposable
     /// <summary>Derives the cipher and MAC keys from <paramref name="key"/>.</summary>
     /// <param name="blockSize">Block size of the underlying cipher.</param>
     /// <param name="key">Exactly 32 bytes. The key is read only during construction.</param>
-    /// <param name="revision">Round-count revision. Defaults to <see cref="MkvRevision.Rev2026"/>.</param>
+    /// <param name="revision">Algorithm revision. Defaults to <see cref="MkvRevision.Rev2025"/>.</param>
     /// <param name="engine">Engine implementation. Defaults to <see cref="MkvEngine.ConstantTime"/>.</param>
     /// <exception cref="ArgumentException"><paramref name="key"/> is not 32 bytes.</exception>
     /// <exception cref="ArgumentOutOfRangeException">An enum argument is not a defined value.</exception>
     public MkvCtrHmac(
         MkvBlockSize blockSize,
         ReadOnlySpan<byte> key,
-        MkvRevision revision = MkvRevision.Rev2026,
+        MkvRevision revision = MkvRevision.Rev2025,
         MkvEngine engine = MkvEngine.ConstantTime)
     {
         RequireLength(key, CtrHmacKeys.KeyBytes, nameof(key));
