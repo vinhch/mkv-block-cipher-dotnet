@@ -1,12 +1,12 @@
 using System.Security.Cryptography;
 using MkvBlockCipher.Modes;
 using Xunit;
+using static MkvBlockCipher.Tests.Modes.ModeTestSupport;
 
 namespace MkvBlockCipher.Tests;
 
 public sealed class MkvCtrHmacTests
 {
-    private const MkvRevision Revision = MkvRevision.Rev2026;
     private const byte Sentinel = 0x5A;
     private const int KeyLength = 32;
     private const int PlaintextLength = 40;
@@ -16,8 +16,6 @@ public sealed class MkvCtrHmacTests
     // Frozen output: any change here breaks stored ciphertexts.
     private const string FrozenCiphertextHex = "C8A0C3CED9FA95FD592AC0FA694E";
     private const string FrozenTagHex = "46EB1FDC12A26D319CC58D66F6D4076FBF623F48DACF89533412E5425C60DD07";
-
-    private static readonly MkvBlockSize[] BlockSizes = [MkvBlockSize.Mkv128, MkvBlockSize.Mkv256];
 
     public static TheoryData<MkvBlockSize, int, int> RoundTripCases()
     {
@@ -42,9 +40,9 @@ public sealed class MkvCtrHmacTests
     public void Round_trip(MkvBlockSize blockSize, int plaintextLength, int adLength)
     {
         using MkvCtrHmac mac = Create(blockSize);
-        byte[] nonce = Seeded(mac.NonceSizeBytes, 2);
-        byte[] associatedData = Seeded(adLength, 3);
-        byte[] plaintext = Seeded(plaintextLength, 4);
+        byte[] nonce = SeededBytes(mac.NonceSizeBytes, 2);
+        byte[] associatedData = SeededBytes(adLength, 3);
+        byte[] plaintext = SeededBytes(plaintextLength, 4);
         byte[] ciphertext = new byte[plaintextLength];
         byte[] tag = new byte[MkvCtrHmac.TagSizeBytes];
 
@@ -61,7 +59,7 @@ public sealed class MkvCtrHmacTests
     public void Empty_plaintext_and_ad_still_authenticates(MkvBlockSize blockSize)
     {
         using MkvCtrHmac mac = Create(blockSize);
-        byte[] nonce = Seeded(mac.NonceSizeBytes, 2);
+        byte[] nonce = SeededBytes(mac.NonceSizeBytes, 2);
         byte[] tag = new byte[MkvCtrHmac.TagSizeBytes];
         byte[] flippedTag = new byte[MkvCtrHmac.TagSizeBytes];
         byte[] otherAd = [0x01];
@@ -87,9 +85,9 @@ public sealed class MkvCtrHmacTests
     public void Any_single_bit_flip_fails(MkvBlockSize blockSize)
     {
         using MkvCtrHmac mac = Create(blockSize);
-        byte[] nonce = Seeded(mac.NonceSizeBytes, 2);
-        byte[] associatedData = Seeded(AssociatedDataLength, 3);
-        byte[] plaintext = Seeded(PlaintextLength, 4);
+        byte[] nonce = SeededBytes(mac.NonceSizeBytes, 2);
+        byte[] associatedData = SeededBytes(AssociatedDataLength, 3);
+        byte[] plaintext = SeededBytes(PlaintextLength, 4);
         byte[] ciphertext = new byte[PlaintextLength];
         byte[] tag = new byte[MkvCtrHmac.TagSizeBytes];
         mac.Encrypt(nonce, plaintext, ciphertext, tag, associatedData);
@@ -150,7 +148,7 @@ public sealed class MkvCtrHmacTests
         }
 
         using MkvCtrHmac mac = Create(blockSize);
-        byte[] plaintext = Seeded(PlaintextLength, 3);
+        byte[] plaintext = SeededBytes(PlaintextLength, 3);
         byte[] ciphertext = new byte[PlaintextLength];
         byte[] tag = new byte[MkvCtrHmac.TagSizeBytes];
         byte[] output = new byte[PlaintextLength];
@@ -178,8 +176,8 @@ public sealed class MkvCtrHmacTests
     public void Ciphertext_length_must_equal_plaintext_length(MkvBlockSize blockSize, int otherLength)
     {
         using MkvCtrHmac mac = Create(blockSize);
-        byte[] nonce = Seeded(mac.NonceSizeBytes, 2);
-        byte[] plaintext = Seeded(PlaintextLength, 3);
+        byte[] nonce = SeededBytes(mac.NonceSizeBytes, 2);
+        byte[] plaintext = SeededBytes(PlaintextLength, 3);
         byte[] tag = new byte[MkvCtrHmac.TagSizeBytes];
         byte[] other = new byte[otherLength];
 
@@ -212,9 +210,9 @@ public sealed class MkvCtrHmacTests
     public void In_place_round_trip(MkvBlockSize blockSize)
     {
         using MkvCtrHmac mac = Create(blockSize);
-        byte[] nonce = Seeded(mac.NonceSizeBytes, 2);
-        byte[] associatedData = Seeded(AssociatedDataLength, 3);
-        byte[] plaintext = Seeded(PlaintextLength, 4);
+        byte[] nonce = SeededBytes(mac.NonceSizeBytes, 2);
+        byte[] associatedData = SeededBytes(AssociatedDataLength, 3);
+        byte[] plaintext = SeededBytes(PlaintextLength, 4);
         byte[] expectedCiphertext = new byte[PlaintextLength];
         byte[] expectedTag = new byte[MkvCtrHmac.TagSizeBytes];
         mac.Encrypt(nonce, plaintext, expectedCiphertext, expectedTag, associatedData);
@@ -234,7 +232,7 @@ public sealed class MkvCtrHmacTests
     {
         using MkvCtrHmac mac = Create(MkvBlockSize.Mkv128);
         byte[] nonce = new byte[mac.NonceSizeBytes];
-        byte[] plaintext = Seeded(PlaintextLength, 3);
+        byte[] plaintext = SeededBytes(PlaintextLength, 3);
         byte[] tag = new byte[MkvCtrHmac.TagSizeBytes];
         byte[] ciphertext = new byte[PlaintextLength];
         byte[] shared = Filled(64, Sentinel);
@@ -260,7 +258,7 @@ public sealed class MkvCtrHmacTests
     {
         using MkvCtrHmac mac = Create(MkvBlockSize.Mkv128);
         byte[] nonce = new byte[mac.NonceSizeBytes];
-        byte[] plaintext = Seeded(PlaintextLength, 3);
+        byte[] plaintext = SeededBytes(PlaintextLength, 3);
         byte[] ciphertext = new byte[PlaintextLength];
         byte[] tag = new byte[MkvCtrHmac.TagSizeBytes];
 
@@ -293,9 +291,9 @@ public sealed class MkvCtrHmacTests
     [Fact]
     public void Key_is_read_only_during_construction()
     {
-        byte[] key = Seeded(KeyLength, 1);
+        byte[] key = SeededBytes(KeyLength, 1);
         byte[] nonce = new byte[12];
-        byte[] plaintext = Seeded(PlaintextLength, 3);
+        byte[] plaintext = SeededBytes(PlaintextLength, 3);
         byte[] expectedCiphertext = new byte[PlaintextLength];
         byte[] expectedTag = new byte[MkvCtrHmac.TagSizeBytes];
         using (MkvCtrHmac beforeMutation = new(MkvBlockSize.Mkv128, key, Revision))
@@ -328,7 +326,7 @@ public sealed class MkvCtrHmacTests
     [Fact]
     public void Undefined_enum_values_throw()
     {
-        byte[] key = Seeded(KeyLength, 1);
+        byte[] key = SeededBytes(KeyLength, 1);
 
         Assert.Throws<ArgumentOutOfRangeException>(() => new MkvCtrHmac((MkvBlockSize)2, key, Revision));
         Assert.Throws<ArgumentOutOfRangeException>(() => new MkvCtrHmac(MkvBlockSize.Mkv128, key, (MkvRevision)2));
@@ -354,8 +352,8 @@ public sealed class MkvCtrHmacTests
     public void Throws_after_dispose(MkvBlockSize blockSize)
     {
         MkvCtrHmac mac = Create(blockSize);
-        byte[] nonce = Seeded(mac.NonceSizeBytes, 2);
-        byte[] data = Seeded(PlaintextLength, 3);
+        byte[] nonce = SeededBytes(mac.NonceSizeBytes, 2);
+        byte[] data = SeededBytes(PlaintextLength, 3);
         byte[] tag = new byte[MkvCtrHmac.TagSizeBytes];
         mac.Dispose();
 
@@ -372,18 +370,7 @@ public sealed class MkvCtrHmacTests
         mac.Dispose();
     }
 
-    private static int BlockBytes(MkvBlockSize blockSize) => blockSize == MkvBlockSize.Mkv128 ? 16 : 32;
-
-    private static MkvCtrHmac Create(MkvBlockSize blockSize) => new(blockSize, Seeded(KeyLength, 1), Revision);
-
-    private static byte[] Filled(int length, byte value) => Enumerable.Repeat(value, length).ToArray();
-
-    private static byte[] Seeded(int length, int seed)
-    {
-        byte[] bytes = new byte[length];
-        new Random(seed).NextBytes(bytes);
-        return bytes;
-    }
+    private static MkvCtrHmac Create(MkvBlockSize blockSize) => new(blockSize, SeededBytes(KeyLength, 1), Revision);
 
     // Output and input share one sentinel buffer, so the rejection must come before any write.
     private static void AssertAliasRejected(string paramName, Action<byte[]> call)
@@ -392,11 +379,5 @@ public sealed class MkvCtrHmacTests
         ArgumentException exception = Assert.Throws<ArgumentException>(() => call(shared));
         Assert.Equal(paramName, exception.ParamName);
         Assert.Equal(Filled(64, Sentinel), shared);
-    }
-
-    private static void AssertRejectsParameter(string paramName, Action action)
-    {
-        ArgumentException exception = Assert.Throws<ArgumentException>(action);
-        Assert.Equal(paramName, exception.ParamName);
     }
 }

@@ -1,5 +1,6 @@
 using MkvBlockCipher.Modes;
 using Xunit;
+using static MkvBlockCipher.Tests.Modes.ModeTestSupport;
 
 namespace MkvBlockCipher.Tests.Modes;
 
@@ -87,6 +88,4 @@ public sealed class Pkcs7Tests
 
         Assert.Equal(-1, Pkcs7.GetUnpaddedLength(block));
     }
-
-    private static byte[] Filled(int length, byte value) => Enumerable.Repeat(value, length).ToArray();
 }

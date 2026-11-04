@@ -3,16 +3,14 @@ using MkvBlockCipher.Kernels;
 using MkvBlockCipher.Modes;
 using MkvBlockCipher.Primitives;
 using Xunit;
+using static MkvBlockCipher.Tests.Modes.ModeTestSupport;
 
 namespace MkvBlockCipher.Tests.Modes;
 
 public sealed class CbcTests
 {
-    private const MkvRevision Revision = MkvRevision.Rev2026;
     private const string DecryptFailure = "The data could not be decrypted.";
     private const byte DataByte = 0xA5;
-
-    private static readonly MkvBlockSize[] BlockSizes = [MkvBlockSize.Mkv128, MkvBlockSize.Mkv256];
 
     public static TheoryData<MkvBlockSize, int> RoundTripCases()
     {
@@ -24,20 +22,6 @@ public sealed class CbcTests
             {
                 cases.Add(blockSize, length);
             }
-        }
-
-        return cases;
-    }
-
-    public static TheoryData<MkvBlockSize, int> WrongIvCases()
-    {
-        TheoryData<MkvBlockSize, int> cases = new();
-        foreach (MkvBlockSize blockSize in BlockSizes)
-        {
-            int blockBytes = BlockBytes(blockSize);
-            cases.Add(blockSize, 0);
-            cases.Add(blockSize, blockBytes - 1);
-            cases.Add(blockSize, blockBytes + 1);
         }
 
         return cases;
@@ -61,26 +45,11 @@ public sealed class CbcTests
         return cases;
     }
 
-    public static TheoryData<MkvBlockSize, string> EngineCases()
-    {
-        TheoryData<MkvBlockSize, string> cases = new();
-        foreach (MkvBlockSize blockSize in BlockSizes)
-        {
-            MkvParameters parameters = MkvParameters.Create(blockSize, BlockBytes(blockSize), Revision);
-            foreach (BlockEngine engine in EngineFactory.AllSupported(parameters))
-            {
-                cases.Add(blockSize, engine.GetType().Name);
-            }
-        }
-
-        return cases;
-    }
-
     [Theory]
     [MemberData(nameof(RoundTripCases))]
     public void Round_trip_lengths(MkvBlockSize blockSize, int length)
     {
-        using MkvCipher cipher = Create(blockSize);
+        using MkvCipher cipher = CreateCipher(blockSize);
         int blockBytes = BlockBytes(blockSize);
         byte[] iv = SeededBytes(blockBytes, 2);
         byte[] plaintext = SeededBytes(length, 3);
@@ -96,7 +65,7 @@ public sealed class CbcTests
     [InlineData(MkvBlockSize.Mkv256)]
     public void Empty_plaintext_gives_one_padding_block(MkvBlockSize blockSize)
     {
-        using MkvCipher cipher = Create(blockSize);
+        using MkvCipher cipher = CreateCipher(blockSize);
         int blockBytes = BlockBytes(blockSize);
         byte[] iv = SeededBytes(blockBytes, 2);
         byte[] expected = EncryptOneBlock(cipher, Xor(Filled(blockBytes, (byte)blockBytes), iv));
@@ -112,7 +81,7 @@ public sealed class CbcTests
     [InlineData(MkvBlockSize.Mkv256)]
     public void Padding_block_is_B_when_aligned(MkvBlockSize blockSize)
     {
-        using MkvCipher cipher = Create(blockSize);
+        using MkvCipher cipher = CreateCipher(blockSize);
         int blockBytes = BlockBytes(blockSize);
         byte[] iv = SeededBytes(blockBytes, 2);
         byte[] ciphertext = cipher.EncryptCbc(SeededBytes(2 * blockBytes, 3), iv);
@@ -125,10 +94,10 @@ public sealed class CbcTests
     }
 
     [Theory]
-    [MemberData(nameof(WrongIvCases))]
+    [MemberData(nameof(ModeTestSupport.WrongLengthCases), MemberType = typeof(ModeTestSupport))]
     public void Wrong_iv_length_throws(MkvBlockSize blockSize, int ivLength)
     {
-        using MkvCipher cipher = Create(blockSize);
+        using MkvCipher cipher = CreateCipher(blockSize);
         int blockBytes = BlockBytes(blockSize);
         byte[] iv = new byte[ivLength];
         byte[] plaintext = SeededBytes(blockBytes, 3);
@@ -148,7 +117,7 @@ public sealed class CbcTests
     [InlineData(MkvBlockSize.Mkv256)]
     public void Try_returns_false_when_destination_one_byte_short(MkvBlockSize blockSize)
     {
-        using MkvCipher cipher = Create(blockSize);
+        using MkvCipher cipher = CreateCipher(blockSize);
         int blockBytes = BlockBytes(blockSize);
         byte[] iv = SeededBytes(blockBytes, 2);
         byte[] plaintext = SeededBytes(blockBytes + 3, 3);
@@ -173,7 +142,7 @@ public sealed class CbcTests
     [InlineData(MkvBlockSize.Mkv256)]
     public void In_place_round_trip(MkvBlockSize blockSize)
     {
-        using MkvCipher cipher = Create(blockSize);
+        using MkvCipher cipher = CreateCipher(blockSize);
         int blockBytes = BlockBytes(blockSize);
         byte[] iv = SeededBytes(blockBytes, 2);
         foreach (int blocks in BatchBoundaryBlockCounts(cipher.Engine.BatchBlocks))
@@ -195,7 +164,7 @@ public sealed class CbcTests
     [InlineData(MkvBlockSize.Mkv256)]
     public void Batch_boundaries_match_block_by_block_reference(MkvBlockSize blockSize)
     {
-        using MkvCipher cipher = Create(blockSize);
+        using MkvCipher cipher = CreateCipher(blockSize);
         int blockBytes = BlockBytes(blockSize);
         byte[] iv = SeededBytes(blockBytes, 2);
         foreach (int blocks in BatchBoundaryBlockCounts(cipher.Engine.BatchBlocks))
@@ -209,10 +178,10 @@ public sealed class CbcTests
     }
 
     [Theory]
-    [MemberData(nameof(EngineCases))]
+    [MemberData(nameof(ModeTestSupport.EngineCases), MemberType = typeof(ModeTestSupport))]
     public void Every_engine_gives_the_same_chunked_cbc(MkvBlockSize blockSize, string engineName)
     {
-        using MkvCipher cipher = Create(blockSize);
+        using MkvCipher cipher = CreateCipher(blockSize);
         int blockBytes = BlockBytes(blockSize);
         MkvParameters parameters = MkvParameters.Create(blockSize, blockBytes, Revision);
         BlockEngine engine = EngineFactory.AllSupported(parameters).Single(e => e.GetType().Name == engineName);
@@ -245,7 +214,7 @@ public sealed class CbcTests
     [InlineData(true, 1, 0)]
     public void Partial_overlap_throws(bool decrypt, int sourceStart, int destinationStart)
     {
-        using MkvCipher cipher = Create(MkvBlockSize.Mkv128);
+        using MkvCipher cipher = CreateCipher(MkvBlockSize.Mkv128);
         byte[] buffer = new byte[48];
 
         ArgumentException exception = Assert.Throws<ArgumentException>(
@@ -256,7 +225,7 @@ public sealed class CbcTests
     [Fact]
     public void Adjacent_buffers_are_accepted()
     {
-        using MkvCipher cipher = Create(MkvBlockSize.Mkv128);
+        using MkvCipher cipher = CreateCipher(MkvBlockSize.Mkv128);
         byte[] iv = new byte[16];
         byte[] buffer = new byte[48];
         byte[] plaintext = SeededBytes(16, 3);
@@ -276,7 +245,7 @@ public sealed class CbcTests
     [InlineData(MkvBlockSize.Mkv256, 33)]
     public void Ciphertext_not_multiple_of_block_throws_ArgumentException(MkvBlockSize blockSize, int length)
     {
-        using MkvCipher cipher = Create(blockSize);
+        using MkvCipher cipher = CreateCipher(blockSize);
         byte[] iv = new byte[BlockBytes(blockSize)];
         byte[] ciphertext = new byte[length];
         byte[] destination = new byte[2 * BlockBytes(blockSize)];
@@ -291,7 +260,7 @@ public sealed class CbcTests
     [InlineData(MkvBlockSize.Mkv256)]
     public void Empty_ciphertext_throws_ArgumentException(MkvBlockSize blockSize)
     {
-        using MkvCipher cipher = Create(blockSize);
+        using MkvCipher cipher = CreateCipher(blockSize);
         byte[] iv = new byte[BlockBytes(blockSize)];
 
         AssertRejectsParameter("ciphertext", () => cipher.DecryptCbc(Array.Empty<byte>(), iv));
@@ -301,7 +270,7 @@ public sealed class CbcTests
     [MemberData(nameof(InvalidPaddingCases))]
     public void Every_invalid_padding_throws_same_exception(MkvBlockSize blockSize, string lastBlock)
     {
-        using MkvCipher cipher = Create(blockSize);
+        using MkvCipher cipher = CreateCipher(blockSize);
         int blockBytes = BlockBytes(blockSize);
         byte[] iv = SeededBytes(blockBytes, 2);
         byte[] ciphertext = EncryptOneBlock(cipher, Xor(Convert.FromHexString(lastBlock), iv));
@@ -326,7 +295,7 @@ public sealed class CbcTests
     [InlineData(MkvBlockSize.Mkv256)]
     public void Padding_failure_zeroes_whole_destination_across_batches(MkvBlockSize blockSize)
     {
-        using MkvCipher cipher = Create(blockSize);
+        using MkvCipher cipher = CreateCipher(blockSize);
         int blockBytes = BlockBytes(blockSize);
         byte[] iv = SeededBytes(blockBytes, 2);
         int blocks = 3 * cipher.Engine.BatchBlocks + 5;
@@ -346,7 +315,7 @@ public sealed class CbcTests
     [Fact]
     public void Stripped_padding_bytes_are_zeroed()
     {
-        using MkvCipher cipher = Create(MkvBlockSize.Mkv128);
+        using MkvCipher cipher = CreateCipher(MkvBlockSize.Mkv128);
         byte[] iv = SeededBytes(16, 2);
         byte[] plaintext = SeededBytes(5, 3);
         byte[] ciphertext = cipher.EncryptCbc(plaintext, iv);
@@ -370,7 +339,7 @@ public sealed class CbcTests
     [InlineData(MkvBlockSize.Mkv256, 32, 64)]
     public void GetCiphertextLengthCbc_returns_next_whole_block(MkvBlockSize blockSize, int plaintextLength, int expected)
     {
-        using MkvCipher cipher = Create(blockSize);
+        using MkvCipher cipher = CreateCipher(blockSize);
 
         Assert.Equal(expected, cipher.GetCiphertextLengthCbc(plaintextLength));
     }
@@ -382,7 +351,7 @@ public sealed class CbcTests
     [InlineData(MkvBlockSize.Mkv256, int.MaxValue)]
     public void GetCiphertextLengthCbc_rejects_negative_or_unrepresentable_length(MkvBlockSize blockSize, int plaintextLength)
     {
-        using MkvCipher cipher = Create(blockSize);
+        using MkvCipher cipher = CreateCipher(blockSize);
 
         Assert.Throws<ArgumentOutOfRangeException>(() => cipher.GetCiphertextLengthCbc(plaintextLength));
     }
@@ -390,7 +359,7 @@ public sealed class CbcTests
     [Fact]
     public void Cbc_methods_throw_after_dispose()
     {
-        using MkvCipher cipher = Create(MkvBlockSize.Mkv128);
+        using MkvCipher cipher = CreateCipher(MkvBlockSize.Mkv128);
         byte[] iv = new byte[16];
         byte[] data = new byte[32];
         cipher.Dispose();
@@ -409,7 +378,7 @@ public sealed class CbcTests
     [InlineData(MkvBlockSize.Mkv256)]
     public void First_block_equals_EncryptBlock_of_plaintext_xor_iv(MkvBlockSize blockSize)
     {
-        using MkvCipher cipher = Create(blockSize);
+        using MkvCipher cipher = CreateCipher(blockSize);
         int blockBytes = BlockBytes(blockSize);
         byte[] plaintext = SeededBytes(blockBytes, 4);
         byte[] iv = SeededBytes(blockBytes, 5);
@@ -419,29 +388,6 @@ public sealed class CbcTests
 
         Assert.Equal(expected, ciphertext[..blockBytes]);
     }
-
-    private static int BlockBytes(MkvBlockSize blockSize) => blockSize == MkvBlockSize.Mkv128 ? 16 : 32;
-
-    private static MkvCipher Create(MkvBlockSize blockSize) =>
-        new(blockSize, SeededBytes(BlockBytes(blockSize), 1), Revision);
-
-    // Ciphertext block counts around the batch boundary, then several batches with a tail.
-    private static IEnumerable<int> BatchBoundaryBlockCounts(int batch)
-    {
-        yield return 1;
-        if (batch > 1)
-        {
-            yield return batch - 1;
-        }
-
-        yield return batch;
-        yield return batch + 1;
-        yield return 3 * batch + 5;
-    }
-
-    // Half a block of padding in the last block, so the plaintext fills the requested block count.
-    private static int PlaintextLengthFor(int ciphertextBlocks, int blockBytes) =>
-        ciphertextBlocks * blockBytes - blockBytes / 2;
 
     private static void RunOverlapping(MkvCipher cipher, bool decrypt, byte[] buffer, int sourceStart, int destinationStart)
     {
@@ -456,38 +402,6 @@ public sealed class CbcTests
         }
     }
 
-    // Padding written out directly, so the reference does not depend on the code under test.
-    private static byte[] PadReference(byte[] plaintext, int blockBytes)
-    {
-        int paddedLength = (plaintext.Length / blockBytes + 1) * blockBytes;
-        byte[] padded = new byte[paddedLength];
-        plaintext.CopyTo(padded, 0);
-        Array.Fill(padded, (byte)(paddedLength - plaintext.Length), plaintext.Length, paddedLength - plaintext.Length);
-        return padded;
-    }
-
-    private static byte[] ReferenceEncrypt(MkvCipher cipher, byte[] padded, byte[] iv)
-    {
-        int blockBytes = cipher.BlockSizeBytes;
-        byte[] ciphertext = new byte[padded.Length];
-        byte[] previous = iv;
-        for (int offset = 0; offset < padded.Length; offset += blockBytes)
-        {
-            byte[] block = Xor(padded[offset..(offset + blockBytes)], previous);
-            cipher.EncryptBlock(block, ciphertext.AsSpan(offset, blockBytes));
-            previous = ciphertext[offset..(offset + blockBytes)];
-        }
-
-        return ciphertext;
-    }
-
-    private static byte[] EncryptOneBlock(MkvCipher cipher, byte[] block)
-    {
-        byte[] output = new byte[block.Length];
-        cipher.EncryptBlock(block, output);
-        return output;
-    }
-
     private static byte[] WithLastByte(int blockBytes, byte last)
     {
         byte[] block = Filled(blockBytes, DataByte);
@@ -500,22 +414,5 @@ public sealed class CbcTests
         byte[] block = Filled(blockBytes, (byte)blockBytes);
         block[position] ^= 0x01;
         return block;
-    }
-
-    private static byte[] Filled(int length, byte value) => Enumerable.Repeat(value, length).ToArray();
-
-    private static byte[] Xor(byte[] left, byte[] right) => left.Zip(right, (a, b) => (byte)(a ^ b)).ToArray();
-
-    private static byte[] SeededBytes(int length, int seed)
-    {
-        byte[] bytes = new byte[length];
-        new Random(seed).NextBytes(bytes);
-        return bytes;
-    }
-
-    private static void AssertRejectsParameter(string paramName, Action action)
-    {
-        ArgumentException exception = Assert.Throws<ArgumentException>(action);
-        Assert.Equal(paramName, exception.ParamName);
     }
 }
