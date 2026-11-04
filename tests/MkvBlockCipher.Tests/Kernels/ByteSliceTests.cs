@@ -6,8 +6,7 @@ namespace MkvBlockCipher.Tests.Kernels;
 
 public sealed class ByteSliceTests
 {
-    // The 32-lane shapes take the x64 vector path, the 16-lane shapes the ARM64 one.
-    // (1, 16) and (3, 32) always take the scalar loops.
+    // On x64 the 32-lane shapes take the vector path. (1, 16) and (3, 32) always take the scalar loops.
     [Theory]
     [InlineData(32, 16)]
     [InlineData(32, 32)]
