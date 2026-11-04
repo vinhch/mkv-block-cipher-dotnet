@@ -52,7 +52,15 @@ public sealed class MkvCtrHmac : IDisposable
             CtrHmacKeys.Derive(key, "enc", _blockBytes, revision, encKey);
             CtrHmacKeys.Derive(key, "mac", _blockBytes, revision, macKey);
             _cipher = new MkvCipher(blockSize, encKey, revision, engine);
-            _mac = IncrementalHash.CreateHMAC(HashAlgorithmName.SHA256, macKey);
+            try
+            {
+                _mac = IncrementalHash.CreateHMAC(HashAlgorithmName.SHA256, macKey);
+            }
+            catch
+            {
+                _cipher.Dispose();
+                throw;
+            }
         }
         finally
         {
