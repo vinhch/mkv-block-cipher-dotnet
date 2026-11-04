@@ -256,6 +256,41 @@ public sealed class MkvCtrHmacTests
     }
 
     [Fact]
+    public void Encrypt_output_overlapping_an_input_throws()
+    {
+        using MkvCtrHmac mac = Create(MkvBlockSize.Mkv128);
+        byte[] nonce = new byte[mac.NonceSizeBytes];
+        byte[] plaintext = Seeded(PlaintextLength, 3);
+        byte[] ciphertext = new byte[PlaintextLength];
+        byte[] tag = new byte[MkvCtrHmac.TagSizeBytes];
+
+        AssertAliasRejected("ciphertext", shared => mac.Encrypt(
+            shared.AsSpan(0, mac.NonceSizeBytes), plaintext, shared.AsSpan(8, PlaintextLength), tag));
+        AssertAliasRejected("tag", shared => mac.Encrypt(
+            nonce, shared.AsSpan(0, PlaintextLength), ciphertext, shared.AsSpan(20, MkvCtrHmac.TagSizeBytes)));
+        AssertAliasRejected("tag", shared => mac.Encrypt(
+            shared.AsSpan(0, mac.NonceSizeBytes), plaintext, ciphertext, shared.AsSpan(4, MkvCtrHmac.TagSizeBytes)));
+        AssertAliasRejected("tag", shared => mac.Encrypt(
+            nonce, plaintext, ciphertext, shared.AsSpan(8, MkvCtrHmac.TagSizeBytes), shared.AsSpan(0, AssociatedDataLength)));
+    }
+
+    [Fact]
+    public void Decrypt_output_overlapping_an_input_throws()
+    {
+        using MkvCtrHmac mac = Create(MkvBlockSize.Mkv128);
+        byte[] nonce = new byte[mac.NonceSizeBytes];
+        byte[] ciphertext = new byte[PlaintextLength];
+        byte[] tag = new byte[MkvCtrHmac.TagSizeBytes];
+
+        AssertAliasRejected("plaintext", shared => mac.Decrypt(
+            shared.AsSpan(0, mac.NonceSizeBytes), ciphertext, tag, shared.AsSpan(8, PlaintextLength)));
+        AssertAliasRejected("plaintext", shared => mac.Decrypt(
+            nonce, ciphertext, tag, shared.AsSpan(10, PlaintextLength), shared.AsSpan(0, AssociatedDataLength)));
+        AssertAliasRejected("plaintext", shared => mac.Decrypt(
+            nonce, shared.AsSpan(0, PlaintextLength), tag, shared.AsSpan(8, PlaintextLength)));
+    }
+
+    [Fact]
     public void Key_is_read_only_during_construction()
     {
         byte[] key = Seeded(KeyLength, 1);
@@ -348,6 +383,15 @@ public sealed class MkvCtrHmacTests
         byte[] bytes = new byte[length];
         new Random(seed).NextBytes(bytes);
         return bytes;
+    }
+
+    // Output and input share one sentinel buffer, so the rejection must come before any write.
+    private static void AssertAliasRejected(string paramName, Action<byte[]> call)
+    {
+        byte[] shared = Filled(64, Sentinel);
+        ArgumentException exception = Assert.Throws<ArgumentException>(() => call(shared));
+        Assert.Equal(paramName, exception.ParamName);
+        Assert.Equal(Filled(64, Sentinel), shared);
     }
 
     private static void AssertRejectsParameter(string paramName, Action action)
