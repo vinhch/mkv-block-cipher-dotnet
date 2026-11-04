@@ -60,10 +60,12 @@ internal sealed class EngineJobs : ManualConfig
                 .WithEnvironmentVariable(BenchSettings.PreciseVariable, "1")
             : Job.Default;
 
-    // Precise keeps every size for the default job, and only the largest size for the fallback jobs.
+    // Precise keeps every size for the default job, and only the largest size for the jobs that switch a runtime toggle off.
     private static bool KeepInPrecise(BenchmarkCase benchmark)
     {
-        if (benchmark.Job.Id == "Default")
+        bool togglesRuntime = benchmark.Job.Environment.EnvironmentVariables
+            .Any(variable => variable.Key.StartsWith("DOTNET_", StringComparison.Ordinal));
+        if (!togglesRuntime)
         {
             return true;
         }
