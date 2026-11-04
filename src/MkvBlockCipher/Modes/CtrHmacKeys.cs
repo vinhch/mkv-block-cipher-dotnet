@@ -40,11 +40,11 @@ internal static class CtrHmacKeys
         HKDF.DeriveKey(HashAlgorithmName.SHA256, key, output, ReadOnlySpan<byte>.Empty, info);
     }
 
-    internal static void ThrowIfTooLong(long plaintextBytes, int blockBytes)
+    internal static void ThrowIfTooLong(long messageBytes, int blockBytes, string paramName)
     {
-        if (plaintextBytes > MaxBlocks * blockBytes)
+        if (messageBytes > MaxBlocks * blockBytes)
         {
-            throw new ArgumentException("The message is too long for one nonce.");
+            throw new ArgumentException("The message is too long for one nonce.", paramName);
         }
     }
 }

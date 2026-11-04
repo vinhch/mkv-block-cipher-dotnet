@@ -171,9 +171,9 @@ public sealed class CtrTests
         byte[] counter = Filled(blockBytes, 0xFF);
         byte[] destination = Filled(2 * blockBytes, Sentinel);
 
-        Assert.Throws<ArgumentException>(() => cipher.TransformCtr(counter, new byte[2 * blockBytes], destination));
+        AssertRejectsParameter("source", () => cipher.TransformCtr(counter, new byte[2 * blockBytes], destination));
         Assert.Equal(Filled(2 * blockBytes, Sentinel), destination);
-        Assert.Throws<ArgumentException>(() => cipher.TransformCtr(counter, new byte[2 * blockBytes]));
+        AssertRejectsParameter("source", () => cipher.TransformCtr(counter, new byte[2 * blockBytes]));
     }
 
     [Theory]
@@ -205,7 +205,7 @@ public sealed class CtrTests
 
         byte[] longer = SeededBytes((blocks + 1) * blockBytes - 3, 3);
         byte[] destination = Filled(longer.Length, Sentinel);
-        Assert.Throws<ArgumentException>(() => cipher.TransformCtr(counter, longer, destination));
+        AssertRejectsParameter("source", () => cipher.TransformCtr(counter, longer, destination));
         Assert.Equal(Filled(longer.Length, Sentinel), destination);
     }
 

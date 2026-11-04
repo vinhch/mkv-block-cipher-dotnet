@@ -99,7 +99,7 @@ public sealed class MkvCtrHmac : IDisposable
         RequireLength(nonce, NonceSizeBytes, nameof(nonce));
         RequireLength(ciphertext, plaintext.Length, nameof(ciphertext));
         RequireLength(tag, TagSizeBytes, nameof(tag));
-        CtrHmacKeys.ThrowIfTooLong(plaintext.Length, _blockBytes);
+        CtrHmacKeys.ThrowIfTooLong(plaintext.Length, _blockBytes, nameof(plaintext));
         BufferChecks.ThrowIfPartialOverlap(plaintext, ciphertext, nameof(ciphertext));
         RequireDisjoint(ciphertext, nonce, nameof(ciphertext));
         RequireDisjoint(ciphertext, associatedData, nameof(ciphertext));
@@ -143,7 +143,7 @@ public sealed class MkvCtrHmac : IDisposable
         RequireLength(nonce, NonceSizeBytes, nameof(nonce));
         RequireLength(tag, TagSizeBytes, nameof(tag));
         RequireLength(plaintext, ciphertext.Length, nameof(plaintext));
-        CtrHmacKeys.ThrowIfTooLong(ciphertext.Length, _blockBytes);
+        CtrHmacKeys.ThrowIfTooLong(ciphertext.Length, _blockBytes, nameof(ciphertext));
         BufferChecks.ThrowIfPartialOverlap(ciphertext, plaintext, nameof(plaintext));
         RequireDisjoint(plaintext, nonce, nameof(plaintext));
         RequireDisjoint(plaintext, tag, nameof(plaintext));

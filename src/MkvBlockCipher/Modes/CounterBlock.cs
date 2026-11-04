@@ -5,7 +5,7 @@ namespace MkvBlockCipher.Modes;
 internal static class CounterBlock
 {
     // Adds blockCount - 1 to the counter from the low byte up. A carry left past the top byte is a wrap.
-    internal static void ThrowIfWouldWrap(ReadOnlySpan<byte> counter, long blockCount)
+    internal static void ThrowIfWouldWrap(ReadOnlySpan<byte> counter, long blockCount, string paramName)
     {
         ulong carry = (ulong)Math.Max(blockCount - 1, 0);
         for (int i = counter.Length - 1; i >= 0 && carry != 0; i--)
@@ -15,7 +15,7 @@ internal static class CounterBlock
 
         if (carry != 0)
         {
-            throw new ArgumentException("The counter would wrap past all-ones for this length.");
+            throw new ArgumentException("The counter would wrap past all-ones for this length.", paramName);
         }
     }
 

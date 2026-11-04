@@ -16,7 +16,7 @@ internal static class Ctr
     {
         int blockBytes = engine.Parameters.BlockBytes;
         long blockCount = ((long)source.Length + blockBytes - 1) / blockBytes;
-        CounterBlock.ThrowIfWouldWrap(initialCounter, blockCount);
+        CounterBlock.ThrowIfWouldWrap(initialCounter, blockCount, nameof(source));
 
         Span<byte> scratch = stackalloc byte[engine.BatchBlocks * blockBytes];
         int offset = 0;

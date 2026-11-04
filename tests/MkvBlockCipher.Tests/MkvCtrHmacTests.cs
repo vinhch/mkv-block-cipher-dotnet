@@ -307,8 +307,10 @@ public sealed class MkvCtrHmacTests
     {
         long maxBytes = (long)uint.MaxValue * blockBytes;
 
-        CtrHmacKeys.ThrowIfTooLong(maxBytes, blockBytes);
-        Assert.Throws<ArgumentException>(() => CtrHmacKeys.ThrowIfTooLong(maxBytes + 1, blockBytes));
+        CtrHmacKeys.ThrowIfTooLong(maxBytes, blockBytes, "plaintext");
+        ArgumentException exception = Assert.Throws<ArgumentException>(
+            () => CtrHmacKeys.ThrowIfTooLong(maxBytes + 1, blockBytes, "plaintext"));
+        Assert.Equal("plaintext", exception.ParamName);
     }
 
     [Theory]
