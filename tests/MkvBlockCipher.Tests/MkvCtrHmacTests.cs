@@ -119,33 +119,20 @@ public sealed class MkvCtrHmacTests
     [Fact]
     public void Default_revision_produces_frozen_vector()
     {
-        byte[] key = Enumerable.Range(0, KeyLength).Select(i => (byte)i).ToArray();
-        byte[] plaintext = "MkvBlockCipher"u8.ToArray();
-        byte[] ciphertext = new byte[plaintext.Length];
-        byte[] tag = new byte[MkvCtrHmac.TagSizeBytes];
-        using MkvCtrHmac mac = new(MkvBlockSize.Mkv128, key);
+        using MkvCtrHmac mac = new(MkvBlockSize.Mkv128, FrozenKey());
 
-        mac.Encrypt(new byte[12], plaintext, ciphertext, tag);
-
-        Assert.Equal(FrozenCiphertextHex, Convert.ToHexString(ciphertext));
-        Assert.Equal(FrozenTagHex, Convert.ToHexString(tag));
+        AssertEncryptsFrozenVector(mac);
     }
 
     [Fact]
     public void Frozen_vector()
     {
-        byte[] key = Enumerable.Range(0, KeyLength).Select(i => (byte)i).ToArray();
+        using MkvCtrHmac mac = new(MkvBlockSize.Mkv128, FrozenKey(), Revision);
+
+        AssertEncryptsFrozenVector(mac);
+
         byte[] nonce = new byte[12];
-        byte[] plaintext = "MkvBlockCipher"u8.ToArray();
-        byte[] ciphertext = new byte[plaintext.Length];
-        byte[] tag = new byte[MkvCtrHmac.TagSizeBytes];
-        using MkvCtrHmac mac = new(MkvBlockSize.Mkv128, key, Revision);
-
-        mac.Encrypt(nonce, plaintext, ciphertext, tag);
-
-        Assert.Equal(FrozenCiphertextHex, Convert.ToHexString(ciphertext));
-        Assert.Equal(FrozenTagHex, Convert.ToHexString(tag));
-
+        byte[] plaintext = FrozenPlaintext();
         byte[] decrypted = new byte[plaintext.Length];
         mac.Decrypt(nonce, Convert.FromHexString(FrozenCiphertextHex), Convert.FromHexString(FrozenTagHex), decrypted);
         Assert.Equal(plaintext, decrypted);
@@ -386,6 +373,23 @@ public sealed class MkvCtrHmacTests
     }
 
     private static MkvCtrHmac Create(MkvBlockSize blockSize) => new(blockSize, SeededBytes(KeyLength, 1), Revision);
+
+    private static byte[] FrozenKey() => Enumerable.Range(0, KeyLength).Select(i => (byte)i).ToArray();
+
+    private static byte[] FrozenPlaintext() => "MkvBlockCipher"u8.ToArray();
+
+    private static void AssertEncryptsFrozenVector(MkvCtrHmac mac)
+    {
+        byte[] nonce = new byte[12];
+        byte[] plaintext = FrozenPlaintext();
+        byte[] ciphertext = new byte[plaintext.Length];
+        byte[] tag = new byte[MkvCtrHmac.TagSizeBytes];
+
+        mac.Encrypt(nonce, plaintext, ciphertext, tag);
+
+        Assert.Equal(FrozenCiphertextHex, Convert.ToHexString(ciphertext));
+        Assert.Equal(FrozenTagHex, Convert.ToHexString(tag));
+    }
 
     // Output and input share one sentinel buffer, so the rejection must come before any write.
     private static void AssertAliasRejected(string paramName, Action<byte[]> call)

@@ -7,14 +7,15 @@ namespace MkvBlockCipher.Tests.TestData;
 // regression values.
 public static class Rev2025Vectors
 {
-    private const string Key16 = "000102030405060708090A0B0C0D0E0F";
+    internal const string Key16 = "000102030405060708090A0B0C0D0E0F";
     private const string Key24 = "000102030405060708090A0B0C0D0E0F1011121314151617";
     private const string Key32 = "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F";
     private const string Key48 = Key32 + "202122232425262728292A2B2C2D2E2F";
     private const string Key64 = Key48 + "303132333435363738393A3B3C3D3E3F";
 
-    private const string Plaintext16 = "FFEEDDCCBBAA99887766554433221100";
+    internal const string Plaintext16 = "FFEEDDCCBBAA99887766554433221100";
     private const string Plaintext32 = Plaintext16 + Plaintext16;
+    internal const string Ciphertext16 = "F2795ECBA8F4D887F539EE8D8DF1141D";
 
     public static TheoryData<MkvBlockSize, string, string, string> RoundKeys { get; } = new()
     {
@@ -28,7 +29,7 @@ public static class Rev2025Vectors
 
     public static TheoryData<MkvBlockSize, string, string, string> Blocks { get; } = new()
     {
-        { MkvBlockSize.Mkv128, Key16, Plaintext16, "F2795ECBA8F4D887F539EE8D8DF1141D" },
+        { MkvBlockSize.Mkv128, Key16, Plaintext16, Ciphertext16 },
         { MkvBlockSize.Mkv128, Key24, Plaintext16, "D8E0A9A2994B4622D837676B7A54BFE2" },
         { MkvBlockSize.Mkv128, Key32, Plaintext16, "893F15625E29414002725C12781A7A34" },
         { MkvBlockSize.Mkv256, Key32, Plaintext32, "24EB2357EABAE02C8E2C9E497125DE8AF0B43EF000BF15FF20E091B0DE08893D" },
