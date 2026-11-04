@@ -81,7 +81,7 @@ internal static class SingleBlockRounds
     {
         int wordBytes = masks.WordBytes;
         AddRoundKey(chunks, k0);
-        SubCells(chunks, SBoxTables.Forward);
+        SubCells(chunks, inverse: false);
         MixWords(
             chunks,
             wordBytes,
@@ -89,7 +89,7 @@ internal static class SingleBlockRounds
             masks.ForwardColumns,
             masks.ForwardRows);
         AddRoundKey(chunks, k1);
-        SubCells(chunks, SBoxTables.Forward);
+        SubCells(chunks, inverse: false);
         XWords(chunks, wordBytes);
     }
 
@@ -98,7 +98,7 @@ internal static class SingleBlockRounds
     {
         int wordBytes = masks.WordBytes;
         XWords(chunks, wordBytes);
-        SubCells(chunks, SBoxTables.Inverse);
+        SubCells(chunks, inverse: true);
         AddRoundKey(chunks, k1);
         MixWords(
             chunks,
@@ -106,7 +106,7 @@ internal static class SingleBlockRounds
             wordBytes == 4 ? MixMatrices.M4Inverse : MixMatrices.M8Inverse,
             masks.InverseColumns,
             masks.InverseRows);
-        SubCells(chunks, SBoxTables.Inverse);
+        SubCells(chunks, inverse: true);
         AddRoundKey(chunks, k0);
     }
 
@@ -118,11 +118,12 @@ internal static class SingleBlockRounds
         }
     }
 
-    private static void SubCells(Span<Vector128<byte>> chunks, ReadOnlySpan<byte> table)
+    private static void SubCells(Span<Vector128<byte>> chunks, bool inverse)
     {
+        ReadOnlySpan<Vector128<byte>> entries = SBoxTableLookup.Entries(inverse);
         for (int chunk = 0; chunk < chunks.Length; chunk++)
         {
-            chunks[chunk] = SBoxTableLookup.Lookup(chunks[chunk], table);
+            chunks[chunk] = SBoxTableLookup.Lookup(chunks[chunk], entries);
         }
     }
 

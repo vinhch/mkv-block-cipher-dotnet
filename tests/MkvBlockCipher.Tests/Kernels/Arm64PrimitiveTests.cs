@@ -21,7 +21,7 @@ public sealed class Arm64PrimitiveTests
         for (int start = 0; start < 256; start += 16)
         {
             ReadOnlySpan<byte> input = Values(start, 16);
-            Vector128<byte> output = SBoxTableLookup.Lookup(Vector128.Create(input), table);
+            Vector128<byte> output = SBoxTableLookup.Lookup(Vector128.Create(input), SBoxTableLookup.Entries(inverse));
             AssertLanes(Expected(table, input), output);
         }
     }
