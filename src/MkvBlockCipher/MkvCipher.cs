@@ -5,8 +5,8 @@ using MkvBlockCipher.Primitives;
 namespace MkvBlockCipher;
 
 /// <summary>
-/// Keyed cipher for 128-bit or 256-bit blocks: single-block methods, and CBC over data of any length. The key is
-/// expanded once in the constructor and not kept. Concurrent calls to the block and CBC methods are safe after
+/// Keyed cipher for 128-bit or 256-bit blocks: single-block methods, and CBC and CTR over data of any length. The key
+/// is expanded once in the constructor and not kept. Concurrent calls to the block, CBC and CTR methods are safe after
 /// construction; Dispose must not overlap them.
 /// </summary>
 public sealed partial class MkvCipher : IDisposable
@@ -76,8 +76,8 @@ public sealed partial class MkvCipher : IDisposable
     }
 
     /// <summary>
-    /// Zeroes the round keys. Block and CBC methods throw <see cref="ObjectDisposedException"/> afterwards. A second
-    /// call does nothing.
+    /// Zeroes the round keys. Block, CBC and CTR methods throw <see cref="ObjectDisposedException"/> afterwards. A
+    /// second call does nothing.
     /// </summary>
     public void Dispose()
     {

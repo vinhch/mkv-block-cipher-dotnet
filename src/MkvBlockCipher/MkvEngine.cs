@@ -3,7 +3,7 @@ namespace MkvBlockCipher;
 /// <summary>Engine implementation for the block rounds.</summary>
 public enum MkvEngine
 {
-    /// <summary>Never branches on or indexes memory by secret data.</summary>
+    /// <summary>Designed to never branch on or index memory by secret data.</summary>
     ConstantTime,
 
     /// <summary>Table-lookup engine, variable time by design.</summary>

@@ -49,7 +49,7 @@ The test suite has no timing test, so this is a design property, not a measured 
 
 ## Concurrency
 
-- `MkvCipher` block and CBC methods are safe to call concurrently after construction. `Dispose` must not overlap them.
+- `MkvCipher` block, CBC and CTR methods are safe to call concurrently after construction. `Dispose` must not overlap them.
 - `MkvCtrHmac` is not thread-safe. Calls must not overlap. Use one instance per thread, or lock around it.
 
 ## Audit status
