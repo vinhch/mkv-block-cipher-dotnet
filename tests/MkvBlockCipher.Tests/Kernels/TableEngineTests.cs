@@ -83,7 +83,7 @@ public sealed class TableEngineTests
     {
         byte[] state = new byte[4 * wordBytes];
         state[column] = value;
-        ScalarLayers.MixWords(state, wordBytes, matrix);
+        ScalarLayers.MixWords(state, wordBytes, matrix, 0, 0);
 
         ulong packed = 0;
         for (int row = 0; row < wordBytes; row++)

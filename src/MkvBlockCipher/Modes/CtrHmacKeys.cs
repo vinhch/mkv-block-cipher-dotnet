@@ -34,6 +34,7 @@ internal static class CtrHmacKeys
         {
             MkvRevision.Rev2024 => 2024,
             MkvRevision.Rev2026 => 2026,
+            MkvRevision.Rev2025 => 2025,
             _ => throw new ArgumentOutOfRangeException(nameof(revision)),
         };
         byte[] info = Encoding.ASCII.GetBytes($"MkvBlockCipher/CtrHmac/v1/{purpose}/{blockBytes * 8}/{year}");

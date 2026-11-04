@@ -49,6 +49,44 @@ public sealed class ScalarRoundTests
     }
 
     [Theory]
+    [InlineData(4, 1, "05091A2E020A133F0F03102408001935")]
+    [InlineData(8, 2, "71ABA9EF754D1E76D3FFD00E10FF8F0D5E680F1FD21F996EFC3C76FEB7AD0815")]
+    public void MixWords_rotates_word_i_by_i_times_step_and_inverse_undoes_it(
+        int wordBytes, int stepBytes, string forward)
+    {
+        ReadOnlySpan<byte> matrix = wordBytes == 4 ? MixMatrices.M4 : MixMatrices.M8;
+        ReadOnlySpan<byte> inverse = wordBytes == 4 ? MixMatrices.M4Inverse : MixMatrices.M8Inverse;
+        byte[] original = Enumerable.Range(0, 4 * wordBytes).Select(i => (byte)i).ToArray();
+        byte[] state = (byte[])original.Clone();
+
+        ScalarLayers.MixWords(state, wordBytes, matrix, stepBytes, 0);
+        Assert.Equal(forward, Convert.ToHexString(state));
+
+        ScalarLayers.MixWords(state, wordBytes, inverse, 0, stepBytes);
+        Assert.Equal(Convert.ToHexString(original), Convert.ToHexString(state));
+    }
+
+    [Theory]
+    [MemberData(nameof(Rev2025Vectors.Blocks), MemberType = typeof(Rev2025Vectors))]
+    public void Rev2025_scalar_encrypt_and_decrypt_match_reference(
+        MkvBlockSize blockSize, string key, string plaintext, string ciphertext)
+    {
+        byte[] keyBytes = Convert.FromHexString(key);
+        MkvParameters parameters = MkvParameters.Create(blockSize, keyBytes.Length, MkvRevision.Rev2025);
+        ScalarEngine engine = new(parameters);
+        byte[] roundKeys = new byte[(2 * parameters.Rounds + 1) * parameters.BlockBytes];
+        KeySchedule.Expand(engine, keyBytes, roundKeys);
+
+        byte[] encrypted = new byte[parameters.BlockBytes];
+        engine.EncryptBlocks(roundKeys, Convert.FromHexString(plaintext), encrypted);
+        Assert.Equal(ciphertext, Convert.ToHexString(encrypted));
+
+        byte[] decrypted = new byte[parameters.BlockBytes];
+        engine.DecryptBlocks(roundKeys, Convert.FromHexString(ciphertext), decrypted);
+        Assert.Equal(plaintext, Convert.ToHexString(decrypted));
+    }
+
+    [Theory]
     [InlineData(MkvBlockSize.Mkv128, 16)]
     [InlineData(MkvBlockSize.Mkv256, 32)]
     public void InverseRound_undoes_Round(MkvBlockSize blockSize, int keyLength)
@@ -208,7 +246,7 @@ public sealed class ScalarRoundTests
         ScalarLayers.SubCells(state, SBoxTables.Forward);
         Assert.Equal(steps[1], Convert.ToHexString(state));
 
-        ScalarLayers.MixWords(state, wordBytes, matrix);
+        ScalarLayers.MixWords(state, wordBytes, matrix, 0, 0);
         Assert.Equal(steps[2], Convert.ToHexString(state));
 
         ScalarLayers.AddRoundKey(state, Key(trace, 1));

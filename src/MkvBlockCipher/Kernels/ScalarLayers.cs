@@ -34,13 +34,22 @@ internal static class ScalarLayers
         }
     }
 
-    internal static void MixWords(Span<byte> state, int wordBytes, ReadOnlySpan<byte> matrix)
+    // Word w reads column (col + w * inputStepBytes) mod wordBytes and writes row r to
+    // (r + w * outputStepBytes) mod wordBytes. Rev2025 rotates the forward input and the inverse output.
+    internal static void MixWords(
+        Span<byte> state, int wordBytes, ReadOnlySpan<byte> matrix, int inputStepBytes, int outputStepBytes)
     {
         Span<byte> word = stackalloc byte[wordBytes];
         for (int w = 0; w < WordsPerBlock; w++)
         {
             int offset = w * wordBytes;
-            state.Slice(offset, wordBytes).CopyTo(word);
+            int inputShift = w * inputStepBytes;
+            int outputShift = w * outputStepBytes;
+            for (int col = 0; col < wordBytes; col++)
+            {
+                word[col] = state[offset + (col + inputShift) % wordBytes];
+            }
+
             for (int row = 0; row < wordBytes; row++)
             {
                 byte mixed = 0;
@@ -49,7 +58,7 @@ internal static class ScalarLayers
                     mixed ^= GaloisField.Multiply(matrix[row * wordBytes + col], word[col]);
                 }
 
-                state[offset + row] = mixed;
+                state[offset + (row + outputShift) % wordBytes] = mixed;
             }
         }
 

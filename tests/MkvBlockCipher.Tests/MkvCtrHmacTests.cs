@@ -329,7 +329,7 @@ public sealed class MkvCtrHmacTests
         byte[] key = SeededBytes(KeyLength, 1);
 
         Assert.Throws<ArgumentOutOfRangeException>(() => new MkvCtrHmac((MkvBlockSize)2, key, Revision));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new MkvCtrHmac(MkvBlockSize.Mkv128, key, (MkvRevision)2));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new MkvCtrHmac(MkvBlockSize.Mkv128, key, (MkvRevision)99));
         Assert.Throws<ArgumentOutOfRangeException>(() => new MkvCtrHmac(MkvBlockSize.Mkv128, key, Revision, (MkvEngine)99));
     }
 

@@ -73,9 +73,10 @@ internal sealed class ScalarEngine(MkvParameters parameters) : BlockEngine(param
     private void ForwardRound(Span<byte> state, ReadOnlySpan<byte> k0, ReadOnlySpan<byte> k1)
     {
         int wordBytes = Parameters.WordBytes;
+        int rotationStepBytes = Parameters.RotationStepBytes;
         ScalarLayers.AddRoundKey(state, k0);
         ScalarLayers.SubCells(state, SBoxTables.Forward);
-        ScalarLayers.MixWords(state, wordBytes, ForwardMatrix);
+        ScalarLayers.MixWords(state, wordBytes, ForwardMatrix, rotationStepBytes, 0);
         ScalarLayers.AddRoundKey(state, k1);
         ScalarLayers.SubCells(state, SBoxTables.Forward);
         ScalarLayers.XWords(state, wordBytes);
@@ -84,10 +85,11 @@ internal sealed class ScalarEngine(MkvParameters parameters) : BlockEngine(param
     private void InvertRound(Span<byte> state, ReadOnlySpan<byte> k0, ReadOnlySpan<byte> k1)
     {
         int wordBytes = Parameters.WordBytes;
+        int rotationStepBytes = Parameters.RotationStepBytes;
         ScalarLayers.XWords(state, wordBytes);
         ScalarLayers.SubCells(state, SBoxTables.Inverse);
         ScalarLayers.AddRoundKey(state, k1);
-        ScalarLayers.MixWords(state, wordBytes, InverseMatrix);
+        ScalarLayers.MixWords(state, wordBytes, InverseMatrix, 0, rotationStepBytes);
         ScalarLayers.SubCells(state, SBoxTables.Inverse);
         ScalarLayers.AddRoundKey(state, k0);
     }

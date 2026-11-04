@@ -32,12 +32,16 @@ internal static class KeySchedule
         Span<byte> counter = scratch.Slice(2 * blockBytes, blockBytes);
         ReadOnlySpan<byte> zero = scratch.Slice(3 * blockBytes, blockBytes);
 
+        // Zero constants leave each counter block as the bare counter, which Rev2024 and Rev2026 use.
+        ReadOnlySpan<byte> leftConstant = parameters.UsesRoundConstants ? RoundConstants.Left(blockBytes) : zero;
+        ReadOnlySpan<byte> rightConstant = parameters.UsesRoundConstants ? RoundConstants.Right(blockBytes) : zero;
+
         LoadHalves(key, parameters.WordBytes, left, right);
         left.CopyTo(roundKeys);
         for (int round = 1; round <= parameters.Rounds; round++)
         {
-            ApplyChain(engine, left, 2 * round - 1, counter, zero);
-            ApplyChain(engine, right, 2 * round, counter, zero);
+            ApplyChain(engine, left, leftConstant, 2 * round - 1, counter, zero);
+            ApplyChain(engine, right, rightConstant, 2 * round, counter, zero);
             ScalarLayers.AddRoundKey(left, right);
             right.CopyTo(roundKeys.Slice((2 * round - 1) * blockBytes));
             left.CopyTo(roundKeys.Slice(2 * round * blockBytes));
@@ -51,12 +55,18 @@ internal static class KeySchedule
         CryptographicOperations.ZeroMemory(scratch);
     }
 
-    // G0(G(counter, block)) in place. The counter block is scratch that holds the big-endian counter.
+    // G0(G(counter, block)) in place. The counter block is scratch that holds the constant with the counter
+    // XORed into its last byte.
     private static void ApplyChain(
-        BlockEngine engine, Span<byte> block, int counter, Span<byte> counterBlock, ReadOnlySpan<byte> zero)
+        BlockEngine engine,
+        Span<byte> block,
+        ReadOnlySpan<byte> constant,
+        int counter,
+        Span<byte> counterBlock,
+        ReadOnlySpan<byte> zero)
     {
-        counterBlock.Clear();
-        counterBlock[^1] = (byte)counter;
+        constant.CopyTo(counterBlock);
+        counterBlock[^1] ^= (byte)counter;
         engine.Round(block, counterBlock, zero);
         engine.Round(block, zero, zero);
     }

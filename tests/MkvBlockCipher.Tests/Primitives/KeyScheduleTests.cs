@@ -30,6 +30,22 @@ public sealed class KeyScheduleTests
     }
 
     [Theory]
+    [MemberData(nameof(Rev2025Vectors.RoundKeys), MemberType = typeof(Rev2025Vectors))]
+    public void Rev2025_round_keys_match_reference(MkvBlockSize blockSize, string key, string rk1, string kPost)
+    {
+        byte[] keyBytes = Convert.FromHexString(key);
+        MkvParameters parameters = MkvParameters.Create(blockSize, keyBytes.Length, MkvRevision.Rev2025);
+        int blockBytes = parameters.BlockBytes;
+        int lastRoundKey = 2 * parameters.Rounds;
+        byte[] roundKeys = new byte[(lastRoundKey + 1) * blockBytes];
+
+        KeySchedule.Expand(new ScalarEngine(parameters), keyBytes, roundKeys);
+
+        Assert.Equal(rk1, Convert.ToHexString(roundKeys.AsSpan(blockBytes, rk1.Length / 2)));
+        Assert.Equal(kPost, Convert.ToHexString(roundKeys.AsSpan(lastRoundKey * blockBytes, blockBytes)));
+    }
+
+    [Theory]
     [InlineData(15)]
     [InlineData(17)]
     public void Expand_rejects_key_of_wrong_length(int keyLength)
