@@ -212,6 +212,38 @@ public sealed class CtrTests
     [Theory]
     [InlineData(MkvBlockSize.Mkv128)]
     [InlineData(MkvBlockSize.Mkv256)]
+    public void Counter_with_zero_last_byte_reaches_all_ones_at_256_blocks(MkvBlockSize blockSize)
+    {
+        using MkvCipher cipher = Create(blockSize);
+        int blockBytes = BlockBytes(blockSize);
+        // All-ones except a zero last byte: block 255 is all-ones, and block 256 would wrap past it.
+        byte[] counter = Filled(blockBytes, 0xFF);
+        counter[^1] = 0x00;
+        byte[] plaintext = SeededBytes(256 * blockBytes, 3);
+        byte[] keystream = ReferenceKeystream(cipher, counter, 256);
+
+        Assert.Equal(Xor(plaintext, keystream), cipher.TransformCtr(counter, plaintext));
+    }
+
+    [Theory]
+    [InlineData(MkvBlockSize.Mkv128)]
+    [InlineData(MkvBlockSize.Mkv256)]
+    public void Counter_with_zero_last_byte_wraps_at_257_blocks(MkvBlockSize blockSize)
+    {
+        using MkvCipher cipher = Create(blockSize);
+        int blockBytes = BlockBytes(blockSize);
+        byte[] counter = Filled(blockBytes, 0xFF);
+        counter[^1] = 0x00;
+        byte[] plaintext = new byte[257 * blockBytes];
+        byte[] destination = Filled(plaintext.Length, Sentinel);
+
+        AssertRejectsParameter("source", () => cipher.TransformCtr(counter, plaintext, destination));
+        Assert.Equal(Filled(plaintext.Length, Sentinel), destination);
+    }
+
+    [Theory]
+    [InlineData(MkvBlockSize.Mkv128)]
+    [InlineData(MkvBlockSize.Mkv256)]
     public void In_place_matches_out_of_place(MkvBlockSize blockSize)
     {
         using MkvCipher cipher = Create(blockSize);
