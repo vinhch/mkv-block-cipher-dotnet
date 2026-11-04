@@ -143,7 +143,9 @@ public sealed class MkvCtrHmac : IDisposable
 
         Span<byte> expectedTag = stackalloc byte[TagSizeBytes];
         ComputeTag(associatedData, nonce, ciphertext, expectedTag);
-        if (!CryptographicOperations.FixedTimeEquals(expectedTag, tag))
+        bool tagMatches = CryptographicOperations.FixedTimeEquals(expectedTag, tag);
+        CryptographicOperations.ZeroMemory(expectedTag);
+        if (!tagMatches)
         {
             CryptographicOperations.ZeroMemory(plaintext);
             throw new CryptographicException(DecryptFailure.Message);

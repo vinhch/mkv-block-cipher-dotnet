@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using MkvBlockCipher.Primitives;
 
 namespace MkvBlockCipher.Kernels;
@@ -51,6 +52,8 @@ internal static class ScalarLayers
                 state[offset + row] = mixed;
             }
         }
+
+        CryptographicOperations.ZeroMemory(word);
     }
 
     internal static void XWords(Span<byte> state, int wordBytes)
