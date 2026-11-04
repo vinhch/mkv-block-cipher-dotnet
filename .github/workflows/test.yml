@@ -53,8 +53,10 @@ jobs:
           # Count occurrences, not lines: the TRX writer puts every result on one line.
           total=$(grep -o '<UnitTestResult ' "$trx" | wc -l | tr -d ' ' || true)
           passed=$(grep -o 'outcome="Passed"' "$trx" | wc -l | tr -d ' ' || true)
-          if (( total == 0 || passed != total )); then
-            echo "ARM64 primitive tests: $passed of $total passed; every case must run on an ARM64 host"
+          # The floor catches cases that were not discovered: a smaller run would still pass every case it found.
+          min_tests=3
+          if (( total < min_tests || passed != total )); then
+            echo "ARM64 primitive tests: expected at least $min_tests, ran $total, passed $passed; every case must run on an ARM64 host"
             exit 1
           fi
 
