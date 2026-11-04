@@ -40,7 +40,7 @@ jobs:
           echo "The arm64 leg ran on ${{ runner.arch }}, so the ARM64 guard would be skipped"
           exit 1
       - name: Test
-        run: bash scripts/test.sh Release
+        run: bash scripts/test.sh Release --report-github
       # Arm64PrimitiveTests skip on every other host, so a green run there proves nothing.
       # On an ARM64 host every case must run and pass; anything else fails the leg.
       - name: Guard - ARM64 primitive tests all ran and passed
@@ -68,7 +68,7 @@ jobs:
       - uses: ./.github/actions/repo-setup
       # The script owns the report-count guard, so a local run gets the same check.
       - name: Test + coverage report
-        run: bash scripts/coverage.sh Release
+        run: bash scripts/coverage.sh Release --report-github
       - name: Coverage summary
         run: cat artifacts/coverage/report/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7

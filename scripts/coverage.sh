@@ -6,7 +6,7 @@ RESULTS_DIR="artifacts/coverage"
 
 rm -rf "$RESULTS_DIR"
 dotnet tool restore
-dotnet test MkvBlockCipher.slnx -c "$CONFIG" --coverlet --results-directory "$RESULTS_DIR"
+dotnet test MkvBlockCipher.slnx -c "$CONFIG" --coverlet --results-directory "$RESULTS_DIR" "${@:2}"
 
 # Guard the report COUNT, not just that some report exists: coverlet.MTP can instrument nothing and still
 # exit 0 with every test green, and a partial run (six reports out of seven) is invisible to reportgenerator.
