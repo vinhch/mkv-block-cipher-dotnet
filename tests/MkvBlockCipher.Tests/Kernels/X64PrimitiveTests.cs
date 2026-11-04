@@ -69,6 +69,35 @@ public sealed class X64PrimitiveTests
         }
     }
 
+    // The GFNI path reads one precomputed matrix per constant, so every constant is checked, not only the mix entries.
+    [Fact(SkipUnless = nameof(X64Supported), Skip = SkipReason)]
+    public void GfMultiply_gfni_matches_scalar_for_every_constant()
+    {
+        for (int i = 0; i < 256; i++)
+        {
+            byte constant = (byte)i;
+            if (Gfni.IsSupported)
+            {
+                for (int start = 0; start < 256; start += 16)
+                {
+                    ReadOnlySpan<byte> values = Values(start, 16);
+                    Vector128<byte> product = GfMultiply.MultiplyGfni(Vector128.Create(values), constant);
+                    AssertLanes(Expected(constant, values), product);
+                }
+            }
+
+            if (Gfni.V256.IsSupported)
+            {
+                for (int start = 0; start < 256; start += 32)
+                {
+                    ReadOnlySpan<byte> values = Values(start, 32);
+                    Vector256<byte> product = GfMultiply.MultiplyGfni(Vector256.Create(values), constant);
+                    AssertLanes(Expected(constant, values), product);
+                }
+            }
+        }
+    }
+
     // Every entry of the four mixing matrices. Each entry is a multiplier the engine applies.
     private static HashSet<byte> MatrixConstants()
     {

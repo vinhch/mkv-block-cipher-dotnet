@@ -8,7 +8,8 @@ namespace MkvBlockCipher.Kernels.X64;
 // and bitwise arithmetic, never a branch or an index.
 internal static class GfMultiply
 {
-    private static readonly ulong[] AffineMatrices = BuildAffineMatrices();
+    private static readonly Vector128<byte>[] AffineMatrices128 = BuildAffineMatrices128();
+    private static readonly Vector256<byte>[] AffineMatrices256 = BuildAffineMatrices256();
 
     internal static Vector128<byte> Multiply(Vector128<byte> x, byte constant) =>
         Gfni.IsSupported ? MultiplyGfni(x, constant) : MultiplyNibble(x, constant);
@@ -17,10 +18,10 @@ internal static class GfMultiply
         Gfni.V256.IsSupported ? MultiplyGfni(x, constant) : MultiplyNibble(x, constant);
 
     internal static Vector128<byte> MultiplyGfni(Vector128<byte> x, byte constant) =>
-        Gfni.GaloisFieldAffineTransform(x, Vector128.Create(AffineMatrices[constant]).AsByte(), 0);
+        Gfni.GaloisFieldAffineTransform(x, AffineMatrices128[constant], 0);
 
     internal static Vector256<byte> MultiplyGfni(Vector256<byte> x, byte constant) =>
-        Gfni.V256.GaloisFieldAffineTransform(x, Vector256.Create(AffineMatrices[constant]).AsByte(), 0);
+        Gfni.V256.GaloisFieldAffineTransform(x, AffineMatrices256[constant], 0);
 
     internal static Vector128<byte> MultiplyNibble(Vector128<byte> x, byte constant)
     {
@@ -62,12 +63,23 @@ internal static class GfMultiply
         return matrix;
     }
 
-    private static ulong[] BuildAffineMatrices()
+    private static Vector128<byte>[] BuildAffineMatrices128()
     {
-        ulong[] matrices = new ulong[256];
+        Vector128<byte>[] matrices = new Vector128<byte>[256];
         for (int constant = 0; constant < 256; constant++)
         {
-            matrices[constant] = AffineMatrix((byte)constant);
+            matrices[constant] = Vector128.Create(AffineMatrix((byte)constant)).AsByte();
+        }
+
+        return matrices;
+    }
+
+    private static Vector256<byte>[] BuildAffineMatrices256()
+    {
+        Vector256<byte>[] matrices = new Vector256<byte>[256];
+        for (int constant = 0; constant < 256; constant++)
+        {
+            matrices[constant] = Vector256.Create(AffineMatrix((byte)constant)).AsByte();
         }
 
         return matrices;
