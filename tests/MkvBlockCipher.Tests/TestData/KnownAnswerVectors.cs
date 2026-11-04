@@ -2,8 +2,8 @@ using Xunit;
 
 namespace MkvBlockCipher.Tests.TestData;
 
-// Known-answer rows. All are published test vectors except Mkv128Rev2026Ciphertext, which comes from the
-// reference implementation.
+// Known-answer rows. Each row of Published is a published test vector except the Mkv128 Rev2026 Key16 row,
+// which uses Mkv128Rev2026Ciphertext: this project computed that value, so it is not a published vector.
 public static class KnownAnswerVectors
 {
     internal const string Key16 = "0102030405060708090A0B0C0D0E0F11";
