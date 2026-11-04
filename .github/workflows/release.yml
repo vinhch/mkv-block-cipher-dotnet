@@ -1,0 +1,45 @@
+name: release
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # A rerun of a tag that is publishing must not cancel the publish in progress.
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with: { persist-credentials: false }
+      - name: Validate tag format
+        # Runs before anything is built or published, so a malformed tag cannot reach a GitHub Release.
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          pattern='^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'
+          if [[ ! "$TAG" =~ $pattern ]]; then
+            echo "Tag '$TAG' must be vMAJOR.MINOR.PATCH with an optional -PRERELEASE suffix"
+            exit 1
+          fi
+      - uses: ./.github/actions/repo-setup
+      - name: Pack
+        env:
+          TAG: ${{ github.ref_name }}
+        run: dotnet pack src/MkvBlockCipher/MkvBlockCipher.csproj -c Release -p:Version="${TAG#v}" -o artifacts/nuget
+      - name: GitHub Release
+        # Third-party action, pinned by SHA. The comment tracks the tag.
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
+        with:
+          files: artifacts/nuget/*.nupkg
+          generate_release_notes: true
+          # The action defaults this to false, which would let v1.2.3-rc.1 become
+          # the repository's latest release.
+          prerelease: ${{ contains(github.ref_name, '-') }}

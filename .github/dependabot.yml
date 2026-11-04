@@ -1,0 +1,25 @@
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: "/"
+    schedule: { interval: weekly }
+    # Fold minor+patch into one PR; majors stay separate so breaking bumps get individual review.
+    # A package joins the FIRST group whose patterns match it, so xunit-lockstep must come first:
+    # the xunit* family exact-pins each other and a lone member bump fails restore (NU1608).
+    groups:
+      xunit-lockstep:
+        patterns: ["xunit*"]
+      nuget-minor-patch:
+        update-types: ["minor", "patch"]
+        exclude-patterns: ["xunit*"]
+
+  # "/" alone scans only .github/workflows and a root action.yml; composite actions
+  # under .github/actions need an explicit glob. `directories` supports globs, `directory` does not.
+  - package-ecosystem: github-actions
+    directories:
+      - "/"
+      - "/.github/actions/*"
+    schedule: { interval: weekly }
+    groups:
+      actions-minor-patch:
+        update-types: ["minor", "patch"]

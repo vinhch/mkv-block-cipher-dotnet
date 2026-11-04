@@ -1,0 +1,75 @@
+name: test
+on:
+  push: { branches: [main] }
+  pull_request: { branches: [main] }
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    strategy:
+      # A failing leg must not hide the results of the others.
+      fail-fast: false
+      matrix:
+        # Each x64 leg turns one instruction-set path off, so its fallback runs in CI.
+        # Only the no-AVX2 leg runs the split-half lane shuffle.
+        include:
+          - { os: ubuntu-latest, leg: default, dotnet-env: "" }
+          - { os: ubuntu-latest, leg: no-hwintrinsic, dotnet-env: DOTNET_EnableHWIntrinsic=0 }
+          - { os: ubuntu-latest, leg: no-gfni, dotnet-env: DOTNET_EnableGFNI=0 }
+          - { os: ubuntu-latest, leg: no-avx2, dotnet-env: DOTNET_EnableAVX2=0 }
+          - { os: macos-14, leg: arm64, dotnet-env: "" }
+    name: test (${{ matrix.leg }})
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with: { persist-credentials: false }
+      - uses: ./.github/actions/repo-setup
+      - name: Set the runtime switch for this leg
+        if: matrix.dotnet-env != ''
+        run: echo "${{ matrix.dotnet-env }}" >> "$GITHUB_ENV"
+      # Without this, an arm64 leg scheduled on an x64 host would skip the ARM64 guard and go green.
+      - name: Guard - the arm64 leg runs on an ARM64 host
+        if: matrix.leg == 'arm64' && runner.arch != 'ARM64'
+        run: |
+          echo "The arm64 leg ran on ${{ runner.arch }}, so the ARM64 guard would be skipped"
+          exit 1
+      - name: Test
+        run: bash scripts/test.sh Release
+      # Arm64PrimitiveTests skip on every other host, so a green run there proves nothing.
+      # On an ARM64 host every case must run and pass; anything else fails the leg.
+      - name: Guard - ARM64 primitive tests all ran and passed
+        if: runner.arch == 'ARM64'
+        run: |
+          set -euo pipefail
+          trx=artifacts/arm64/arm64-primitives.trx
+          mkdir -p artifacts/arm64
+          dotnet run -c Release --no-build --project tests/MkvBlockCipher.Tests/MkvBlockCipher.Tests.csproj -- -class "*Arm64PrimitiveTests" -result-trx "$trx"
+          # Count occurrences, not lines: the TRX writer puts every result on one line.
+          total=$(grep -o '<UnitTestResult ' "$trx" | wc -l | tr -d ' ' || true)
+          passed=$(grep -o 'outcome="Passed"' "$trx" | wc -l | tr -d ' ' || true)
+          if (( total == 0 || passed != total )); then
+            echo "ARM64 primitive tests: $passed of $total passed; every case must run on an ARM64 host"
+            exit 1
+          fi
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with: { persist-credentials: false }
+      - uses: ./.github/actions/repo-setup
+      # The script owns the report-count guard, so a local run gets the same check.
+      - name: Test + coverage report
+        run: bash scripts/coverage.sh Release
+      - name: Coverage summary
+        run: cat artifacts/coverage/report/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: coverage-report
+          path: artifacts/coverage/report
