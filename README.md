@@ -132,7 +132,7 @@ Two revisions, `Rev2024` and `Rev2025` (default), share one algorithm. They diff
 
 ## Benchmarks
 
-Throughput in MB/s (10^6 bytes per second) on a 1 MiB payload, with `ConstantTime`, `Rev2026` (the previous default, not re-measured for `Rev2025`) and the BenchmarkDotNet Default job (no kernel toggles, so the CPU's preferred kernel path runs). Measured on one Intel Core i7-12700H machine running Windows 11.
+Throughput in MB/s (10^6 bytes per second) on a 1 MiB payload, with `ConstantTime`, `Rev2025` (the default, not re-measured for this revision) and the BenchmarkDotNet Default job (no kernel toggles, so the CPU's preferred kernel path runs). Measured on one Intel Core i7-12700H machine running Windows 11.
 
 | Operation | Mkv128 | Mkv256 |
 | --- | ---: | ---: |

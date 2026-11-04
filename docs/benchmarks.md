@@ -4,7 +4,7 @@ Baseline MB/s of the span APIs for the block cipher, CBC, CTR and CtrHmac, measu
 
 Machine: Intel Core i7-12700H, 20 logical processors, Windows 11 Pro 10.0.26200, .NET 10.0.14.
 
-Setup: the default revision Rev2026 and engine ConstantTime, with a 32-byte key for both block sizes. Under Rev2026 that key length gives 9 rounds for Mkv128 and 7 rounds for Mkv256.
+Setup: the default revision Rev2025 and engine ConstantTime, with a 32-byte key for both block sizes. Under Rev2025 that key length gives 9 rounds for Mkv128 and 7 rounds for Mkv256.
 
 Rows are kernel paths. Default sets no toggle, so it uses the best kernel branch the CPU supports. NoHwIntrinsic (`DOTNET_EnableHWIntrinsic=0`) is the only toggle that changes the engine class: it runs the scalar engine. NoGfni (`DOTNET_EnableGFNI=0`) and NoAvx2 (`DOTNET_EnableAVX2=0`) keep the SIMD engine and switch one kernel branch each. NoGfni leaves AVX2 on, and NoAvx2 leaves GFNI on. No row runs the SSSE3-only path with both AVX2 and GFNI off.
 
