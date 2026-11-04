@@ -24,11 +24,18 @@ public class ModeBenchmarks
     [Params(MkvBlockSize.Mkv128, MkvBlockSize.Mkv256)]
     public MkvBlockSize BlockSize { get; set; }
 
-    [Params(MkvEngine.ConstantTime, MkvEngine.VariableTime)]
+    [ParamsSource(nameof(EngineValues))]
     public MkvEngine Engine { get; set; }
 
-    [Params(16, 1024, 65536, 1048576)]
+    [ParamsSource(nameof(SizeValues))]
     public int Size { get; set; }
+
+    public static IEnumerable<MkvEngine> EngineValues => BenchSettings.Engines;
+
+    // 1040 bytes is 65 Mkv128 blocks, which fills no whole batch, so the tail path runs.
+    public static IEnumerable<int> SizeValues => BenchSettings.Quick
+        ? new[] { 16, 1024, 1040, 1048576 }
+        : new[] { 16, 1024, 65536, 1048576 };
 
     [GlobalSetup]
     public void Setup()

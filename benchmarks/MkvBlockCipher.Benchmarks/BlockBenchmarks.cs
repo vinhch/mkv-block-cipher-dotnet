@@ -16,8 +16,10 @@ public class BlockBenchmarks
     [Params(MkvBlockSize.Mkv128, MkvBlockSize.Mkv256)]
     public MkvBlockSize BlockSize { get; set; }
 
-    [Params(MkvEngine.ConstantTime, MkvEngine.VariableTime)]
+    [ParamsSource(nameof(EngineValues))]
     public MkvEngine Engine { get; set; }
+
+    public static IEnumerable<MkvEngine> EngineValues => BenchSettings.Engines;
 
     [GlobalSetup]
     public void Setup()
