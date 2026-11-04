@@ -136,10 +136,10 @@ Throughput in MB/s (10^6 bytes per second) on a 1 MiB payload, with `ConstantTim
 
 | Operation | Mkv128 | Mkv256 |
 | --- | ---: | ---: |
-| CBC encrypt | 26.65 | 18.91 |
-| CBC decrypt | 91.66 | 108.65 |
-| CTR encrypt | 89.39 | 104.07 |
-| CtrHmac encrypt | 86.25 | 81.06 |
+| CBC encrypt | 27.16 | 18.48 |
+| CBC decrypt | 93.21 | 100.30 |
+| CTR encrypt | 90.59 | 97.99 |
+| CtrHmac encrypt | 83.03 | 80.13 |
 
 The full tables, the kernel-path rows and the VariableTime gate are in [docs/benchmarks.md](docs/benchmarks.md).
 
