@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
+using System.Runtime.Intrinsics.Arm;
 using System.Runtime.Intrinsics.X86;
 
 namespace MkvBlockCipher.Kernels;
@@ -60,14 +61,19 @@ internal static class ByteSlice
         }
     }
 
-    // Only whole 32-lane batches of 16 or 32 block bytes take the vector path, with spans of exactly that size.
-    // Any other input keeps the scalar loops.
+    // Only whole batches with exact span lengths take the vector path. Any other input keeps the scalar loops.
     private static bool IsVectorShape(int lanes, int blockBytes, int blocksLength, int slicedLength) =>
-        Sse2.IsSupported
-        && lanes == 32
-        && (blockBytes == 16 || blockBytes == 32)
-        && blocksLength == lanes * blockBytes
-        && slicedLength == blocksLength;
+        blocksLength == lanes * blockBytes
+        && slicedLength == blocksLength
+        && (IsX64Shape(lanes, blockBytes) || IsArm64Shape(lanes, blockBytes));
+
+    // 32 lanes of 16 or 32 block bytes, with SSE2.
+    private static bool IsX64Shape(int lanes, int blockBytes) =>
+        Sse2.IsSupported && lanes == 32 && (blockBytes == 16 || blockBytes == 32);
+
+    // 16 lanes of 16 or 32 block bytes, with AdvSimd.
+    private static bool IsArm64Shape(int lanes, int blockBytes) =>
+        AdvSimd.Arm64.IsSupported && lanes == 16 && (blockBytes == 16 || blockBytes == 32);
 
     // Writes the transpose of a rows x cols byte matrix: destination[c * rows + r] = source[r * cols + c].
     // rows and cols are multiples of 16, so every tile is complete.
@@ -77,7 +83,18 @@ internal static class ByteSlice
         {
             for (int col = 0; col < cols; col += 16)
             {
-                TransposeTile(source.Slice(row * cols + col), cols, destination.Slice(col * rows + row), rows);
+                ReadOnlySpan<byte> tileSource = source.Slice(row * cols + col);
+                Span<byte> tileDestination = destination.Slice(col * rows + row);
+
+                // IsVectorShape admits a shape only for the ISA this host has, so the else branch is ARM64.
+                if (Sse2.IsSupported)
+                {
+                    TransposeTileX64(tileSource, cols, tileDestination, rows);
+                }
+                else
+                {
+                    TransposeTileArm64(tileSource, cols, tileDestination, rows);
+                }
             }
         }
     }
@@ -85,7 +102,7 @@ internal static class ByteSlice
     // Transposes one 16 x 16 tile: row i is 16 bytes at source[i * sourceStride]. Four unpack stages, one per element
     // width (8, 16, 32, 64 bits). In a stage with distance d, slot i pairs with slot i + d inside each group of 2d
     // slots; the low and high interleaves go to slots 2i and 2i + 1 of that group. The shuffles depend only on position.
-    private static void TransposeTile(
+    private static void TransposeTileX64(
         ReadOnlySpan<byte> source, int sourceStride, Span<byte> destination, int destinationStride)
     {
         Span<Vector128<byte>> first = stackalloc Vector128<byte>[16];
@@ -131,6 +148,61 @@ internal static class ByteSlice
             Vector128<byte> y = second[i + 8];
             first[2 * i] = Sse2.UnpackLow(x.AsUInt64(), y.AsUInt64()).AsByte();
             first[2 * i + 1] = Sse2.UnpackHigh(x.AsUInt64(), y.AsUInt64()).AsByte();
+        }
+
+        for (int i = 0; i < 16; i++)
+        {
+            first[i].StoreUnsafe(ref MemoryMarshal.GetReference(destination), (nuint)(i * destinationStride));
+        }
+    }
+
+    // The same four stages as TransposeTileX64. ZIP1 and ZIP2 interleave the lower and upper halves like the unpacks.
+    private static void TransposeTileArm64(
+        ReadOnlySpan<byte> source, int sourceStride, Span<byte> destination, int destinationStride)
+    {
+        Span<Vector128<byte>> first = stackalloc Vector128<byte>[16];
+        Span<Vector128<byte>> second = stackalloc Vector128<byte>[16];
+
+        // IsVectorShape fixes both spans to whole 16-row tiles, so the unchecked accesses stay in bounds.
+        for (int i = 0; i < 16; i++)
+        {
+            first[i] = Vector128.LoadUnsafe(ref MemoryMarshal.GetReference(source), (nuint)(i * sourceStride));
+        }
+
+        for (int pair = 0; pair < 16; pair += 2)
+        {
+            second[pair] = AdvSimd.Arm64.ZipLow(first[pair], first[pair + 1]);
+            second[pair + 1] = AdvSimd.Arm64.ZipHigh(first[pair], first[pair + 1]);
+        }
+
+        for (int group = 0; group < 16; group += 4)
+        {
+            for (int i = 0; i < 2; i++)
+            {
+                Vector128<byte> x = second[group + i];
+                Vector128<byte> y = second[group + i + 2];
+                first[group + 2 * i] = AdvSimd.Arm64.ZipLow(x.AsUInt16(), y.AsUInt16()).AsByte();
+                first[group + 2 * i + 1] = AdvSimd.Arm64.ZipHigh(x.AsUInt16(), y.AsUInt16()).AsByte();
+            }
+        }
+
+        for (int group = 0; group < 16; group += 8)
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                Vector128<byte> x = first[group + i];
+                Vector128<byte> y = first[group + i + 4];
+                second[group + 2 * i] = AdvSimd.Arm64.ZipLow(x.AsUInt32(), y.AsUInt32()).AsByte();
+                second[group + 2 * i + 1] = AdvSimd.Arm64.ZipHigh(x.AsUInt32(), y.AsUInt32()).AsByte();
+            }
+        }
+
+        for (int i = 0; i < 8; i++)
+        {
+            Vector128<byte> x = second[i];
+            Vector128<byte> y = second[i + 8];
+            first[2 * i] = AdvSimd.Arm64.ZipLow(x.AsUInt64(), y.AsUInt64()).AsByte();
+            first[2 * i + 1] = AdvSimd.Arm64.ZipHigh(x.AsUInt64(), y.AsUInt64()).AsByte();
         }
 
         for (int i = 0; i < 16; i++)
