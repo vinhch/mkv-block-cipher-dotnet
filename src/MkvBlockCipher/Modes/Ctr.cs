@@ -30,20 +30,11 @@ internal static class Ctr
             engine.EncryptBlocks(roundKeys, keystream, keystream);
 
             int length = Math.Min(keystream.Length, source.Length - offset);
-            XorInto(source.Slice(offset, length), keystream, destination.Slice(offset, length));
+            ByteXor.Xor(source.Slice(offset, length), keystream.Slice(0, length), destination.Slice(offset, length));
             offset += length;
             firstBlock += batchBlocks;
         }
 
         CryptographicOperations.ZeroMemory(scratch);
-    }
-
-    // Source and destination may be the same span: each byte is read before its own slot is written.
-    private static void XorInto(ReadOnlySpan<byte> source, ReadOnlySpan<byte> keystream, Span<byte> destination)
-    {
-        for (int i = 0; i < source.Length; i++)
-        {
-            destination[i] = (byte)(source[i] ^ keystream[i]);
-        }
     }
 }

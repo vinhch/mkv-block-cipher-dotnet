@@ -21,13 +21,13 @@ internal static class Cbc
         for (int offset = 0; offset < fullBytes; offset += blockBytes)
         {
             plaintext.Slice(offset, blockBytes).CopyTo(block);
-            XorInPlace(block, previous);
+            ByteXor.Xor(block, previous, block);
             engine.EncryptBlocks(roundKeys, block, destination.Slice(offset, blockBytes));
             previous = destination.Slice(offset, blockBytes);
         }
 
         Pkcs7.Pad(plaintext.Slice(fullBytes), block);
-        XorInPlace(block, previous);
+        ByteXor.Xor(block, previous, block);
         engine.EncryptBlocks(roundKeys, block, destination.Slice(fullBytes, blockBytes));
         CryptographicOperations.ZeroMemory(block);
     }
@@ -57,7 +57,8 @@ internal static class Cbc
             for (int position = 0; position < length; position += blockBytes)
             {
                 ReadOnlySpan<byte> prior = position == 0 ? previous : batch.Slice(position - blockBytes, blockBytes);
-                XorInPlace(output.Slice(position, blockBytes), prior);
+                Span<byte> outputBlock = output.Slice(position, blockBytes);
+                ByteXor.Xor(outputBlock, prior, outputBlock);
             }
 
             batch.Slice(length - blockBytes, blockBytes).CopyTo(previous);
@@ -77,13 +78,5 @@ internal static class Cbc
         int plaintextLength = lastOffset + unpaddedLength;
         CryptographicOperations.ZeroMemory(destination.Slice(plaintextLength, ciphertext.Length - plaintextLength));
         return plaintextLength;
-    }
-
-    private static void XorInPlace(Span<byte> target, ReadOnlySpan<byte> operand)
-    {
-        for (int i = 0; i < target.Length; i++)
-        {
-            target[i] ^= operand[i];
-        }
     }
 }
