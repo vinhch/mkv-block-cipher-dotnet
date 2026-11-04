@@ -2,9 +2,9 @@ using Xunit;
 
 namespace MkvBlockCipher.Tests.TestData;
 
-// Rev2025 known answers from the publicly available reference material. Keys are bytes 00 01 02 ... of the key
-// length. RoundKeys gives the first 8 bytes of RK[1] and the last round key RK[2R]; Blocks gives the ciphertext
-// of each plaintext.
+// Keys are bytes 00 01 02 ... of the key length. The six ciphertexts, the first 8 bytes of RK[1] and the Mkv256 last round
+// key (32-byte key) come from publicly available reference material. The other five last round keys are project-computed
+// regression values.
 public static class Rev2025Vectors
 {
     private const string Key16 = "000102030405060708090A0B0C0D0E0F";
