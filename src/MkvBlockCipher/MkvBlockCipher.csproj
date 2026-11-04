@@ -1,7 +1,20 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackageId>MkvBlockCipher</PackageId>
+    <Description>Unofficial, unaudited .NET implementation of the MKV block cipher: single-block, CBC, CTR and authenticated CTR with HMAC-SHA256.</Description>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryType>git</RepositoryType>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <!-- Owner: MkvRepositoryUrl (the repository web URL) fills the package repository URL; source links need a git remote. -->
+    <RepositoryUrl Condition="'$(MkvRepositoryUrl)' != ''">$(MkvRepositoryUrl)</RepositoryUrl>
   </PropertyGroup>
+  <ItemGroup>
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="\" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="MkvBlockCipher.Tests" />
     <InternalsVisibleTo Include="MkvBlockCipher.Benchmarks" />
