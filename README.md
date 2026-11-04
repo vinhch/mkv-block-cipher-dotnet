@@ -4,18 +4,15 @@ MkvBlockCipher is a .NET library for the MKV block cipher, with 128-bit and 256-
 
 This is an unofficial implementation and has not been audited. Read [docs/security.md](docs/security.md) before you protect data with it.
 
-## Build
+## Installation
 
-The library targets `net10.0`. The SDK version is pinned in `global.json`.
+The library targets `net10.0`. It is not published to nuget.org. Reference the project directly, or pack it and install the local package:
 
 ```bash
-bash scripts/build.sh Release
-bash scripts/test.sh
-bash scripts/lint.sh
 dotnet pack src/MkvBlockCipher/MkvBlockCipher.csproj -c Release
 ```
 
-`dotnet pack` writes the `.nupkg` and `.snupkg` to `src/MkvBlockCipher/bin/Release/`. The package is not published to nuget.org. Use a project reference, or install the local package.
+The `.nupkg` and `.snupkg` land in `src/MkvBlockCipher/bin/Release/`.
 
 ## Quick start
 
@@ -56,6 +53,66 @@ aead.Decrypt(nonce, encrypted, tag, decrypted);
 
 Use `MkvCtrHmac` for data from untrusted sources. Limits and key handling are in [docs/security.md](docs/security.md).
 
+## API reference
+
+Namespace `MkvBlockCipher`. Every type and member has XML documentation; this section lists the surface.
+
+### Enums
+
+| Type | Values |
+| --- | --- |
+| `MkvBlockSize` | `Mkv128` (16-byte block), `Mkv256` (32-byte block) |
+| `MkvRevision` | `Rev2024`, `Rev2026` (default). See [Revisions](#revisions) |
+| `MkvEngine` | `ConstantTime` (default), `VariableTime`. See [Engines](#engines) |
+
+Key lengths are 16, 24 or 32 bytes for `Mkv128`, and 32, 48 or 64 bytes for `Mkv256`.
+
+### MkvCipher
+
+Block cipher and modes under one key. Implements `IDisposable`.
+
+| Member | Notes |
+| --- | --- |
+| `MkvCipher(MkvBlockSize, ReadOnlySpan<byte> key, MkvRevision = Rev2026, MkvEngine = ConstantTime)` | Runs the key schedule once. The key is not kept |
+| `int BlockSizeBytes` | 16 or 32 |
+| `void EncryptBlock(source, destination)`, `void DecryptBlock(source, destination)` | One block, no mode |
+| `int GetCiphertextLengthCbc(int plaintextLength)` | CBC output size. PKCS#7 always adds between 1 and `BlockSizeBytes` bytes |
+| `byte[] EncryptCbc(plaintext, iv)`, `int EncryptCbc(plaintext, iv, destination)`, `bool TryEncryptCbc(plaintext, iv, destination, out bytesWritten)` | CBC with PKCS#7 padding |
+| `byte[] DecryptCbc(ciphertext, iv)`, `int DecryptCbc(ciphertext, iv, destination)`, `bool TryDecryptCbc(ciphertext, iv, destination, out bytesWritten)` | CBC with padding removed. Bad padding throws `CryptographicException` |
+| `void TransformCtr(initialCounter, source, destination)`, `byte[] TransformCtr(initialCounter, source)` | CTR keystream XOR. Encryption and decryption are the same call |
+| `void Dispose()` | Zeroes the round keys. Later calls throw `ObjectDisposedException` |
+
+### MkvCtrHmac
+
+Authenticated mode: CTR, then HMAC-SHA256 over the associated data, the nonce and the ciphertext. Implements `IDisposable`.
+
+| Member | Notes |
+| --- | --- |
+| `MkvCtrHmac(MkvBlockSize, ReadOnlySpan<byte> key, MkvRevision = Rev2026, MkvEngine = ConstantTime)` | The key must be exactly 32 bytes. Sub-keys are derived with HKDF |
+| `int NonceSizeBytes` | `BlockSizeBytes - 4`: 12 or 28 |
+| `const int TagSizeBytes` | 32 |
+| `void Encrypt(nonce, plaintext, ciphertext, tag, associatedData = default)` | `ciphertext` has the length of `plaintext` |
+| `void Decrypt(nonce, ciphertext, tag, plaintext, associatedData = default)` | Verifies the tag before decrypting. On failure zeroes `plaintext` and throws |
+| `void Dispose()` | As for `MkvCipher` |
+
+### Errors
+
+| Exception | When |
+| --- | --- |
+| `ArgumentException` | A length is wrong, or two buffers partially overlap. `ParamName` names the argument |
+| `CryptographicException` | Bad padding or a bad tag. The message is always "The data could not be decrypted." |
+| `ObjectDisposedException` | A method is called after `Dispose` |
+
+## Advanced usage
+
+- **Allocation.** The span overloads allocate nothing per call. The `byte[]` overloads allocate the result. Create one cipher per key and reuse it.
+- **Output sizes.** Use `BlockSizeBytes` for one block and `GetCiphertextLengthCbc` for CBC. The `Try` methods return `false` and write nothing when the destination is too short. The other overloads throw `ArgumentException`.
+- **In-place.** The same start for source and destination is allowed in every mode. Partial overlap throws.
+- **Counters.** `TransformCtr` takes an initial counter of one block. A call whose counter would wrap past all-ones throws before it writes anything.
+- **Associated data.** `MkvCtrHmac` authenticates the associated data without encrypting it. Pass the same bytes to `Decrypt`.
+- **Concurrency.** `MkvCipher` block, CBC and CTR calls may run concurrently on one instance, but `Dispose` must not overlap them. `MkvCtrHmac` is not thread-safe: use one instance per thread.
+- **Limits.** Message length limits and nonce rules are in [docs/security.md](docs/security.md#limits).
+
 ## Revisions
 
 Two revisions, `Rev2024` and `Rev2026` (default), share one algorithm and differ in round count, which is 6 to 9. The round count for each block size and key length is in [docs/algorithm.md](docs/algorithm.md#revisions).
@@ -86,9 +143,32 @@ Throughput in MB/s (10^6 bytes per second) on a 1 MiB payload, with `ConstantTim
 
 The full tables, the kernel-path rows and the VariableTime gate are in [docs/benchmarks.md](docs/benchmarks.md).
 
+## Development
+
+Requirements: the .NET SDK pinned in `global.json`, 10.0.100 or a later 10.0 feature band. Everything else comes from NuGet.
+
+| Script | Does |
+| --- | --- |
+| `scripts/build.sh [Debug\|Release]` | Builds the solution. Default `Debug` |
+| `scripts/test.sh [Debug\|Release] [args]` | Runs the tests. Default `Debug`. Extra arguments go to `dotnet test`; CI adds `--report-github` |
+| `scripts/coverage.sh [Debug\|Release]` | Runs the tests with coverage and writes an HTML report to `artifacts/coverage/report/`. Default `Release` |
+| `scripts/lint.sh` | `dotnet format --verify-no-changes` |
+| `scripts/bench.sh [args]` | Runs the BenchmarkDotNet suite. See [docs/benchmarks.md](docs/benchmarks.md) |
+
+Each script has a `.ps1` twin.
+
+```text
+src/MkvBlockCipher/           the library: public API, Modes/, Primitives/, Kernels/ (engines)
+tests/MkvBlockCipher.Tests/   xUnit v3 on Microsoft.Testing.Platform; published test vectors in TestData/
+benchmarks/                   BenchmarkDotNet project
+docs/                         algorithm, security and benchmark notes
+```
+
+CI runs in `.github/workflows`. Build runs on Ubuntu, Windows and macOS. Test runs on Ubuntu with the default kernels and with the scalar, GFNI-off and AVX2-off paths, plus an ARM64 macOS leg that fails if its ARM64 tests do not run. Coverage and lint run as their own jobs. All of these run on pushes and pull requests to `main`. Pushing a tag `vX.Y.Z`, optionally with a `-suffix`, packs the library and attaches the `.nupkg` to a GitHub Release. Nothing is published to nuget.org.
+
 ## About this implementation
 
-MKV was publicly announced as a proposed Vietnamese national standard block cipher. This repository is an independent interpretation and implementation of MKV, built solely from publicly announced information. It does not reference, reproduce, or link to any external document. It is not affiliated with or endorsed by any standards body or the algorithm's designers, and it has not been independently audited.
+MKV was publicly announced as a proposed Vietnamese national standard (TCVN) block cipher. This repository is an independent interpretation and implementation of MKV, built solely from publicly announced information. It does not reference, reproduce, or link to any external document. It is not affiliated with or endorsed by any standards body or the algorithm's designers, and it has not been independently audited.
 
 ## License
 
