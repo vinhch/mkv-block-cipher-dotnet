@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Numerics;
 using MkvBlockCipher.Primitives;
 
 namespace MkvBlockCipher.Kernels;
@@ -90,57 +91,64 @@ internal sealed class TableEngine(MkvParameters parameters) : BlockEngine(parame
 
     private void ForwardMix(Span<byte> state)
     {
+        int stepBytes = Parameters.RotationStepBytes;
         if (Parameters.WordBytes == 4)
         {
-            MixWords32(state, FusedTables.Forward32);
+            MixWords32(state, FusedTables.Forward32, stepBytes, 0);
         }
         else
         {
-            MixWords64(state, FusedTables.Forward64);
+            MixWords64(state, FusedTables.Forward64, stepBytes, 0);
         }
     }
 
     private void InverseMix(Span<byte> state)
     {
+        int stepBytes = Parameters.RotationStepBytes;
         if (Parameters.WordBytes == 4)
         {
-            MixWords32(state, FusedTables.Inverse32);
+            MixWords32(state, FusedTables.Inverse32, 0, stepBytes);
         }
         else
         {
-            MixWords64(state, FusedTables.Inverse64);
+            MixWords64(state, FusedTables.Inverse64, 0, stepBytes);
         }
     }
 
-    // Each output word is the XOR of one table entry per input byte of that word.
-    private static void MixWords32(Span<byte> state, ReadOnlySpan<uint> table)
+    // Each output word is the XOR of one table entry per input byte of that word. Word w reads column
+    // (column + w * inputStepBytes) mod 4, and its packed output is rotated left by w * outputStepBytes bytes.
+    private static void MixWords32(Span<byte> state, ReadOnlySpan<uint> table, int inputStepBytes, int outputStepBytes)
     {
         const int wordBytes = 4;
         for (int word = 0; word < WordsPerBlock; word++)
         {
             int offset = word * wordBytes;
+            int inputShift = word * inputStepBytes;
             uint mixed = 0;
             for (int column = 0; column < wordBytes; column++)
             {
-                mixed ^= table[(column << 8) | state[offset + column]];
+                mixed ^= table[(column << 8) | state[offset + ((column + inputShift) & (wordBytes - 1))]];
             }
 
+            mixed = BitOperations.RotateLeft(mixed, 8 * word * outputStepBytes);
             BinaryPrimitives.WriteUInt32LittleEndian(state.Slice(offset, wordBytes), mixed);
         }
     }
 
-    private static void MixWords64(Span<byte> state, ReadOnlySpan<ulong> table)
+    private static void MixWords64(Span<byte> state, ReadOnlySpan<ulong> table, int inputStepBytes, int outputStepBytes)
     {
         const int wordBytes = 8;
         for (int word = 0; word < WordsPerBlock; word++)
         {
             int offset = word * wordBytes;
+            int inputShift = word * inputStepBytes;
             ulong mixed = 0;
             for (int column = 0; column < wordBytes; column++)
             {
-                mixed ^= table[(column << 8) | state[offset + column]];
+                mixed ^= table[(column << 8) | state[offset + ((column + inputShift) & (wordBytes - 1))]];
             }
 
+            mixed = BitOperations.RotateLeft(mixed, 8 * word * outputStepBytes);
             BinaryPrimitives.WriteUInt64LittleEndian(state.Slice(offset, wordBytes), mixed);
         }
     }

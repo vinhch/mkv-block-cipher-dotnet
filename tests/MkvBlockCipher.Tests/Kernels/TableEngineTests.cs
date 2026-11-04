@@ -6,7 +6,7 @@ namespace MkvBlockCipher.Tests.Kernels;
 
 public sealed class TableEngineTests
 {
-    private const MkvRevision Revision = MkvRevision.Rev2026;
+    private const MkvRevision Revision = MkvRevision.Rev2025;
 
     // Random parity reaches only part of each table, so every entry is compared with the scalar mix.
     [Theory]
@@ -40,6 +40,39 @@ public sealed class TableEngineTests
                 ulong expected = ScalarMixOfByte(wordBytes, matrix, column, (byte)value);
                 Assert.Equal(expected, InverseEntry(wordBytes, (column << 8) | value));
             }
+        }
+    }
+
+    // Rev2024 has no rotation and Rev2025 rotates every word, so both sides of the rotation are checked per round.
+    [Theory]
+    [InlineData(MkvBlockSize.Mkv128, MkvRevision.Rev2024)]
+    [InlineData(MkvBlockSize.Mkv128, MkvRevision.Rev2025)]
+    [InlineData(MkvBlockSize.Mkv256, MkvRevision.Rev2024)]
+    [InlineData(MkvBlockSize.Mkv256, MkvRevision.Rev2025)]
+    public void Rounds_match_scalar_rounds(MkvBlockSize blockSize, MkvRevision revision)
+    {
+        int keyLength = blockSize == MkvBlockSize.Mkv128 ? 16 : 32;
+        MkvParameters parameters = MkvParameters.Create(blockSize, keyLength, revision);
+        ScalarEngine reference = new(parameters);
+        TableEngine engine = new(parameters);
+        Random random = new(keyLength);
+        for (int i = 0; i < 32; i++)
+        {
+            byte[] state = RandomBytes(random, parameters.BlockBytes);
+            byte[] k0 = RandomBytes(random, parameters.BlockBytes);
+            byte[] k1 = RandomBytes(random, parameters.BlockBytes);
+
+            byte[] expected = (byte[])state.Clone();
+            byte[] actual = (byte[])state.Clone();
+            reference.Round(expected, k0, k1);
+            engine.Round(actual, k0, k1);
+            Assert.Equal(expected, actual);
+
+            expected = (byte[])state.Clone();
+            actual = (byte[])state.Clone();
+            reference.InverseRound(expected, k0, k1);
+            engine.InverseRound(actual, k0, k1);
+            Assert.Equal(expected, actual);
         }
     }
 
@@ -77,6 +110,13 @@ public sealed class TableEngineTests
     }
 
     private static int WordBytes(MkvBlockSize blockSize) => blockSize == MkvBlockSize.Mkv128 ? 4 : 8;
+
+    private static byte[] RandomBytes(Random random, int length)
+    {
+        byte[] bytes = new byte[length];
+        random.NextBytes(bytes);
+        return bytes;
+    }
 
     // Puts one byte in word 0 and reads word 0 back after the scalar mix, so the result is one table entry.
     private static ulong ScalarMixOfByte(int wordBytes, ReadOnlySpan<byte> matrix, int column, byte value)

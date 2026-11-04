@@ -20,7 +20,7 @@ internal static class SingleBlockRounds
     {
         Span<Vector128<byte>> chunks = stackalloc Vector128<byte>[parameters.BlockBytes / ChunkBytes];
         Load(block, chunks);
-        ForwardRound(chunks, parameters.WordBytes, k0, k1);
+        ForwardRound(chunks, SingleBlockMasks.For(parameters), k0, k1);
         Store(chunks, block);
         CryptographicOperations.ZeroMemory(MemoryMarshal.AsBytes(chunks));
     }
@@ -29,7 +29,7 @@ internal static class SingleBlockRounds
     {
         Span<Vector128<byte>> chunks = stackalloc Vector128<byte>[parameters.BlockBytes / ChunkBytes];
         Load(block, chunks);
-        InvertRound(chunks, parameters.WordBytes, k0, k1);
+        InvertRound(chunks, SingleBlockMasks.For(parameters), k0, k1);
         Store(chunks, block);
         CryptographicOperations.ZeroMemory(MemoryMarshal.AsBytes(chunks));
     }
@@ -38,13 +38,14 @@ internal static class SingleBlockRounds
         MkvParameters parameters, ReadOnlySpan<byte> roundKeys, ReadOnlySpan<byte> source, Span<byte> destination)
     {
         int blockBytes = parameters.BlockBytes;
+        SingleBlockMasks masks = SingleBlockMasks.For(parameters);
         Span<Vector128<byte>> chunks = stackalloc Vector128<byte>[blockBytes / ChunkBytes];
         Load(source, chunks);
         for (int round = 0; round < parameters.Rounds; round++)
         {
             ForwardRound(
                 chunks,
-                parameters.WordBytes,
+                masks,
                 RoundKey(roundKeys, blockBytes, 2 * round),
                 RoundKey(roundKeys, blockBytes, 2 * round + 1));
         }
@@ -58,6 +59,7 @@ internal static class SingleBlockRounds
         MkvParameters parameters, ReadOnlySpan<byte> roundKeys, ReadOnlySpan<byte> source, Span<byte> destination)
     {
         int blockBytes = parameters.BlockBytes;
+        SingleBlockMasks masks = SingleBlockMasks.For(parameters);
         Span<Vector128<byte>> chunks = stackalloc Vector128<byte>[blockBytes / ChunkBytes];
         Load(source, chunks);
         AddRoundKey(chunks, RoundKey(roundKeys, blockBytes, 2 * parameters.Rounds));
@@ -65,7 +67,7 @@ internal static class SingleBlockRounds
         {
             InvertRound(
                 chunks,
-                parameters.WordBytes,
+                masks,
                 RoundKey(roundKeys, blockBytes, 2 * round),
                 RoundKey(roundKeys, blockBytes, 2 * round + 1));
         }
@@ -74,22 +76,36 @@ internal static class SingleBlockRounds
         CryptographicOperations.ZeroMemory(MemoryMarshal.AsBytes(chunks));
     }
 
-    private static void ForwardRound(Span<Vector128<byte>> chunks, int wordBytes, ReadOnlySpan<byte> k0, ReadOnlySpan<byte> k1)
+    private static void ForwardRound(
+        Span<Vector128<byte>> chunks, SingleBlockMasks masks, ReadOnlySpan<byte> k0, ReadOnlySpan<byte> k1)
     {
+        int wordBytes = masks.WordBytes;
         AddRoundKey(chunks, k0);
         SubCells(chunks, SBoxTables.Forward);
-        MixWords(chunks, wordBytes, wordBytes == 4 ? MixMatrices.M4 : MixMatrices.M8);
+        MixWords(
+            chunks,
+            wordBytes,
+            wordBytes == 4 ? MixMatrices.M4 : MixMatrices.M8,
+            masks.ForwardColumns,
+            masks.ForwardRows);
         AddRoundKey(chunks, k1);
         SubCells(chunks, SBoxTables.Forward);
         XWords(chunks, wordBytes);
     }
 
-    private static void InvertRound(Span<Vector128<byte>> chunks, int wordBytes, ReadOnlySpan<byte> k0, ReadOnlySpan<byte> k1)
+    private static void InvertRound(
+        Span<Vector128<byte>> chunks, SingleBlockMasks masks, ReadOnlySpan<byte> k0, ReadOnlySpan<byte> k1)
     {
+        int wordBytes = masks.WordBytes;
         XWords(chunks, wordBytes);
         SubCells(chunks, SBoxTables.Inverse);
         AddRoundKey(chunks, k1);
-        MixWords(chunks, wordBytes, wordBytes == 4 ? MixMatrices.M4Inverse : MixMatrices.M8Inverse);
+        MixWords(
+            chunks,
+            wordBytes,
+            wordBytes == 4 ? MixMatrices.M4Inverse : MixMatrices.M8Inverse,
+            masks.InverseColumns,
+            masks.InverseRows);
         SubCells(chunks, SBoxTables.Inverse);
         AddRoundKey(chunks, k0);
     }
@@ -110,18 +126,21 @@ internal static class SingleBlockRounds
         }
     }
 
-    // Lane i takes row i mod wordBytes of its word: the sum over columns of matrix entry times the word's byte.
-    // Each column holds one word byte copied into every lane of its word, so all rows reuse it.
-    private static void MixWords(Span<Vector128<byte>> chunks, int wordBytes, ReadOnlySpan<byte> matrix)
+    // Each column holds one word byte copied into every lane of its word, so all rows reuse it. The rotation sits in
+    // the masks: the column shuffle for the forward mix, the row select for the inverse.
+    private static void MixWords(
+        Span<Vector128<byte>> chunks,
+        int wordBytes,
+        ReadOnlySpan<byte> matrix,
+        Vector128<byte>[] columnMasks,
+        Vector128<byte>[] rowMasks)
     {
-        Vector128<byte> rowOfLane = LaneIndex & Vector128.Create((byte)(wordBytes - 1));
-        Vector128<byte> wordStartOfLane = LaneIndex & Vector128.Create((byte)(0xFF ^ (wordBytes - 1)));
         Span<Vector128<byte>> columns = stackalloc Vector128<byte>[wordBytes];
         for (int chunk = 0; chunk < chunks.Length; chunk++)
         {
             for (int column = 0; column < wordBytes; column++)
             {
-                columns[column] = Ssse3.Shuffle(chunks[chunk], wordStartOfLane + Vector128.Create((byte)column));
+                columns[column] = Ssse3.Shuffle(chunks[chunk], columnMasks[chunk * wordBytes + column]);
             }
 
             Vector128<byte> mixed = Vector128<byte>.Zero;
@@ -133,7 +152,7 @@ internal static class SingleBlockRounds
                     sum ^= GfMultiply.Multiply(columns[column], matrix[row * wordBytes + column]);
                 }
 
-                mixed |= sum & Sse2.CompareEqual(rowOfLane, Vector128.Create((byte)row));
+                mixed |= sum & rowMasks[chunk * wordBytes + row];
             }
 
             chunks[chunk] = mixed;

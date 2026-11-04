@@ -56,6 +56,34 @@ public sealed class MkvCipherBlockTests
         Assert.Equal(plaintext, Convert.ToHexString(decrypted));
     }
 
+    [Theory]
+    [MemberData(nameof(Rev2025Cases))]
+    public void Rev2025_matches_reference_on_every_engine(
+        MkvBlockSize blockSize, string key, string plaintext, string ciphertext, MkvEngine engine)
+    {
+        using MkvCipher cipher = new(blockSize, Convert.FromHexString(key), MkvRevision.Rev2025, engine);
+        byte[] decrypted = new byte[cipher.BlockSizeBytes];
+
+        Assert.Equal(ciphertext, Encrypt(cipher, Convert.FromHexString(plaintext)));
+        cipher.DecryptBlock(Convert.FromHexString(ciphertext), decrypted);
+        Assert.Equal(plaintext, Convert.ToHexString(decrypted));
+    }
+
+    public static TheoryData<MkvBlockSize, string, string, string, MkvEngine> Rev2025Cases()
+    {
+        TheoryData<MkvBlockSize, string, string, string, MkvEngine> cases = new();
+        foreach (TheoryDataRow<MkvBlockSize, string, string, string> row in Rev2025Vectors.Blocks)
+        {
+            (MkvBlockSize blockSize, string key, string plaintext, string ciphertext) = row.Data;
+            foreach (MkvEngine engine in new[] { MkvEngine.ConstantTime, MkvEngine.VariableTime })
+            {
+                cases.Add(blockSize, key, plaintext, ciphertext, engine);
+            }
+        }
+
+        return cases;
+    }
+
     [Fact]
     public void Default_revision_is_Rev2026()
     {

@@ -23,7 +23,7 @@ internal static class BatchRounds
         {
             ForwardRound(
                 state,
-                parameters.WordBytes,
+                parameters,
                 RoundKey(roundKeys, blockBytes, 2 * round),
                 RoundKey(roundKeys, blockBytes, 2 * round + 1));
         }
@@ -45,7 +45,7 @@ internal static class BatchRounds
         {
             InvertRound(
                 state,
-                parameters.WordBytes,
+                parameters,
                 RoundKey(roundKeys, blockBytes, 2 * round),
                 RoundKey(roundKeys, blockBytes, 2 * round + 1));
         }
@@ -54,22 +54,36 @@ internal static class BatchRounds
         CryptographicOperations.ZeroMemory(sliced);
     }
 
-    private static void ForwardRound(Span<Vector128<byte>> state, int wordBytes, ReadOnlySpan<byte> k0, ReadOnlySpan<byte> k1)
+    private static void ForwardRound(
+        Span<Vector128<byte>> state, MkvParameters parameters, ReadOnlySpan<byte> k0, ReadOnlySpan<byte> k1)
     {
+        int wordBytes = parameters.WordBytes;
         AddRoundKey(state, k0);
         SubCells(state, SBoxTables.Forward);
-        MixWords(state, wordBytes, wordBytes == 4 ? MixMatrices.M4 : MixMatrices.M8);
+        MixWords(
+            state,
+            wordBytes,
+            wordBytes == 4 ? MixMatrices.M4 : MixMatrices.M8,
+            parameters.RotationStepBytes,
+            0);
         AddRoundKey(state, k1);
         SubCells(state, SBoxTables.Forward);
         XWords(state, wordBytes);
     }
 
-    private static void InvertRound(Span<Vector128<byte>> state, int wordBytes, ReadOnlySpan<byte> k0, ReadOnlySpan<byte> k1)
+    private static void InvertRound(
+        Span<Vector128<byte>> state, MkvParameters parameters, ReadOnlySpan<byte> k0, ReadOnlySpan<byte> k1)
     {
+        int wordBytes = parameters.WordBytes;
         XWords(state, wordBytes);
         SubCells(state, SBoxTables.Inverse);
         AddRoundKey(state, k1);
-        MixWords(state, wordBytes, wordBytes == 4 ? MixMatrices.M4Inverse : MixMatrices.M8Inverse);
+        MixWords(
+            state,
+            wordBytes,
+            wordBytes == 4 ? MixMatrices.M4Inverse : MixMatrices.M8Inverse,
+            0,
+            parameters.RotationStepBytes);
         SubCells(state, SBoxTables.Inverse);
         AddRoundKey(state, k0);
     }
@@ -91,27 +105,33 @@ internal static class BatchRounds
         }
     }
 
-    // Each word's output row is computed fully before it overwrites the word's bytes.
-    private static void MixWords(Span<Vector128<byte>> state, int wordBytes, ReadOnlySpan<byte> matrix)
+    // Each word's output row is computed fully before it overwrites the word's bytes. Word w reads column
+    // (column + w * inputStepBytes) mod wordBytes and stores row r at (r + w * outputStepBytes) mod wordBytes.
+    // wordBytes is a power of two, so the mask is the modulus.
+    private static void MixWords(
+        Span<Vector128<byte>> state, int wordBytes, ReadOnlySpan<byte> matrix, int inputStepBytes, int outputStepBytes)
     {
         Span<Vector128<byte>> mixed = stackalloc Vector128<byte>[wordBytes];
         for (int word = 0; word < WordsPerBlock; word++)
         {
             int first = word * wordBytes;
+            int inputShift = word * inputStepBytes;
             for (int row = 0; row < wordBytes; row++)
             {
                 Vector128<byte> sum = Vector128<byte>.Zero;
                 for (int column = 0; column < wordBytes; column++)
                 {
-                    sum ^= GfMultiply.Multiply(state[first + column], matrix[row * wordBytes + column]);
+                    int source = (column + inputShift) & (wordBytes - 1);
+                    sum ^= GfMultiply.Multiply(state[first + source], matrix[row * wordBytes + column]);
                 }
 
                 mixed[row] = sum;
             }
 
+            int outputShift = word * outputStepBytes;
             for (int row = 0; row < wordBytes; row++)
             {
-                state[first + row] = mixed[row];
+                state[first + ((row + outputShift) & (wordBytes - 1))] = mixed[row];
             }
         }
 

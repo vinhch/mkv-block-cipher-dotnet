@@ -6,7 +6,7 @@ namespace MkvBlockCipher.Tests.Kernels;
 
 public sealed class EngineParityTests
 {
-    private const MkvRevision Revision = MkvRevision.Rev2026;
+    private static readonly MkvRevision[] Revisions = [MkvRevision.Rev2024, MkvRevision.Rev2025];
 
     private static readonly (MkvBlockSize BlockSize, int KeyLength)[] KeyLengths =
     [
@@ -18,15 +18,18 @@ public sealed class EngineParityTests
         (MkvBlockSize.Mkv256, 64),
     ];
 
-    public static TheoryData<MkvBlockSize, int, string> EngineCases()
+    public static TheoryData<MkvRevision, MkvBlockSize, int, string> EngineCases()
     {
-        TheoryData<MkvBlockSize, int, string> cases = new();
-        foreach ((MkvBlockSize blockSize, int keyLength) in KeyLengths)
+        TheoryData<MkvRevision, MkvBlockSize, int, string> cases = new();
+        foreach (MkvRevision revision in Revisions)
         {
-            MkvParameters parameters = MkvParameters.Create(blockSize, keyLength, Revision);
-            foreach (BlockEngine engine in EngineFactory.AllSupported(parameters))
+            foreach ((MkvBlockSize blockSize, int keyLength) in KeyLengths)
             {
-                cases.Add(blockSize, keyLength, engine.GetType().Name);
+                MkvParameters parameters = MkvParameters.Create(blockSize, keyLength, revision);
+                foreach (BlockEngine engine in EngineFactory.AllSupported(parameters))
+                {
+                    cases.Add(revision, blockSize, keyLength, engine.GetType().Name);
+                }
             }
         }
 
@@ -35,9 +38,9 @@ public sealed class EngineParityTests
 
     [Theory]
     [MemberData(nameof(EngineCases))]
-    public void Engines_match_scalar(MkvBlockSize blockSize, int keyLength, string engineName)
+    public void Engines_match_scalar(MkvRevision revision, MkvBlockSize blockSize, int keyLength, string engineName)
     {
-        Subject subject = Subject.Create(blockSize, keyLength, engineName);
+        Subject subject = Subject.Create(revision, blockSize, keyLength, engineName);
         Random random = new(1);
 
         AssertBlocksMatch(subject, random, inPlace: false);
@@ -46,9 +49,9 @@ public sealed class EngineParityTests
 
     [Theory]
     [MemberData(nameof(EngineCases))]
-    public void Engines_support_in_place(MkvBlockSize blockSize, int keyLength, string engineName)
+    public void Engines_support_in_place(MkvRevision revision, MkvBlockSize blockSize, int keyLength, string engineName)
     {
-        Subject subject = Subject.Create(blockSize, keyLength, engineName);
+        Subject subject = Subject.Create(revision, blockSize, keyLength, engineName);
         Random random = new(2);
 
         AssertBlocksMatch(subject, random, inPlace: true);
@@ -122,9 +125,9 @@ public sealed class EngineParityTests
     private sealed record Subject(MkvParameters Parameters, ScalarEngine Reference, BlockEngine Engine, byte[] RoundKeys)
     {
         // Round keys come from the key schedule run on each engine, so the schedule is checked for parity too.
-        internal static Subject Create(MkvBlockSize blockSize, int keyLength, string engineName)
+        internal static Subject Create(MkvRevision revision, MkvBlockSize blockSize, int keyLength, string engineName)
         {
-            MkvParameters parameters = MkvParameters.Create(blockSize, keyLength, Revision);
+            MkvParameters parameters = MkvParameters.Create(blockSize, keyLength, revision);
             ScalarEngine reference = new(parameters);
             BlockEngine engine = EngineFactory.AllSupported(parameters).Single(e => e.GetType().Name == engineName);
 
