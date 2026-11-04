@@ -3,6 +3,7 @@ using MkvBlockCipher.Kernels;
 
 namespace MkvBlockCipher.Modes;
 
+// The stack copies are cleared; register values are not.
 internal static class Ctr
 {
     // Counters and keystream share one scratch buffer. Each batch overwrites the part it uses,
