@@ -12,7 +12,7 @@ All four jobs use BenchmarkDotNet's Default job. Each job is its own process wit
 
 ## Run
 
-Full matrix: `bash scripts/bench.sh --filter "*"`. It has 272 rows: two engines, four jobs. The ConstantTime-only matrix of 136 rows took 60 minutes in the recorded run, so expect about twice that. Narrow it with a filter: `bash scripts/bench.sh --filter "*CbcEncrypt*"` for one case, `bash scripts/bench.sh --filter "*CbcEncrypt(BlockSize: Mkv128*"` for one case and block size, or `--filter "*VariableTime*"` for the VariableTime rows. `scripts/bench.ps1` takes the same arguments. `--job Short` adds a fifth job next to the four rows; it does not replace them.
+Full matrix: `bash scripts/bench.sh --filter "*"`. It has 272 rows: two engines, four jobs. The ConstantTime-only matrix of 136 rows took 60 minutes in the recorded run. The 272-row matrix has not been run in full; the time of about twice that is an estimate. Narrow it with a filter: `bash scripts/bench.sh --filter "*CbcEncrypt*"` for one case, `bash scripts/bench.sh --filter "*CbcEncrypt(BlockSize: Mkv128*"` for one case and block size, or `--filter "*VariableTime*"` for the VariableTime rows. `scripts/bench.ps1` takes the same arguments. `--job Short` adds a fifth job next to the four rows; it does not replace them.
 
 ## EncryptBlock
 
