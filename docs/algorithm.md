@@ -126,7 +126,7 @@ Mix matrices. M4 = A4^4 and M8 = A8^8, with the powers taken over GF(2^8). A4 is
 
 This section lists what the tests check and where each expected value comes from.
 
-- Rev2025: the six reference vectors, on both `MkvEngine` values and on the scalar fallback. Also the first 8 bytes of RK[1] and the last round key, for each block size and key length. The values come from publicly available reference material.
+- Rev2025: the six reference vectors, on both `MkvEngine` values and on the scalar fallback. The six ciphertexts, the first 8 bytes of RK[1] for each block size and key length, and the last round key for `Mkv256` with a 32-byte key come from publicly available reference material. The other five last round keys are computed by this project and serve as regression values.
 - Rev2024: the full round key sets, the per-round intermediate values for both block sizes, and the block outputs. The values come from the earlier draft.
 - Implementation paths: every path the machine supports, including the table path, matches the scalar fallback under both revisions, for blocks and rounds, out of place and in place.
 - Tables: the S-box matches its construction, and the inverse S-box round-trips it. The mix matrices match their constructions, and each inverse multiplies its matrix to the identity.
