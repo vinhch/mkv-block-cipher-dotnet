@@ -115,7 +115,7 @@ Authenticated mode: CTR, then HMAC-SHA256 over the associated data, the nonce an
 
 ## Revisions
 
-Two revisions, `Rev2024` and `Rev2025` (default), share one algorithm. They differ in round count, which is 6 to 9. `Rev2025` also rotates each word in MixWords and adds round constants to the key schedule. The round count for each block size and key length is in [docs/algorithm.md](docs/algorithm.md#revisions).
+Two revisions, `Rev2024` and `Rev2025` (default), share the S-box, the mix matrices and the round structure. `Rev2025` uses one more round, rotates each word in MixWords and adds round constants to the key schedule. The round count for each block size and key length is in [docs/algorithm.md](docs/algorithm.md#revisions).
 
 ## Engines
 
@@ -132,7 +132,7 @@ Two revisions, `Rev2024` and `Rev2025` (default), share one algorithm. They diff
 
 ## Benchmarks
 
-Throughput in MB/s (10^6 bytes per second) on a 1 MiB payload, with `ConstantTime`, `Rev2025` (the default, not re-measured for this revision) and the BenchmarkDotNet Default job (no kernel toggles, so the CPU's preferred kernel path runs). Measured on one Intel Core i7-12700H machine running Windows 11.
+Throughput in MB/s (10^6 bytes per second) on a 1 MiB payload, with `ConstantTime`, `Rev2025` and the BenchmarkDotNet Default job (no kernel toggles, so the CPU's preferred kernel path runs). Measured on one Intel Core i7-12700H machine running Windows 11.
 
 | Operation | Mkv128 | Mkv256 |
 | --- | ---: | ---: |
