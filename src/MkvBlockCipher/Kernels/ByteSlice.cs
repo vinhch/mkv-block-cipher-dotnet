@@ -1,4 +1,4 @@
-namespace MkvBlockCipher.Kernels.X64;
+namespace MkvBlockCipher.Kernels;
 
 // Converts between block-major bytes and byte-major lanes: byte p of block b sits at index p * lanes + b.
 // Only public indices are used, so the copy never depends on the data.

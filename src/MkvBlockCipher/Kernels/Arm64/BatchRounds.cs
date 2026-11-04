@@ -1,7 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using System.Security.Cryptography;
-using MkvBlockCipher.Kernels.X64;
 using MkvBlockCipher.Primitives;
 
 namespace MkvBlockCipher.Kernels.Arm64;
