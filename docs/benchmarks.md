@@ -1,5 +1,7 @@
 # Benchmarks
 
+The numbers on this page predate the current kernels, including the GFNI S-box and the AVX-512 engine; the ARM64 kernels and the AVX-512 engine are not measured on real hardware.
+
 Baseline MB/s of the span APIs for the block cipher, CBC, CTR and CtrHmac, measured on one machine.
 
 Machine: Intel Core i7-12700H, 20 logical processors, Windows 11 Pro 10.0.26200, .NET 10.0.14.
