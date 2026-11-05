@@ -1,3 +1,4 @@
+using MkvBlockCipher.Modes;
 using MkvBlockCipher.Primitives;
 
 namespace MkvBlockCipher.Kernels;
@@ -19,6 +20,14 @@ internal abstract class BlockEngine(MkvParameters parameters)
     internal abstract void EncryptBlocks(ReadOnlySpan<byte> roundKeys, ReadOnlySpan<byte> source, Span<byte> destination);
 
     internal abstract void DecryptBlocks(ReadOnlySpan<byte> roundKeys, ReadOnlySpan<byte> source, Span<byte> destination);
+
+    // Keystream block i is EncryptBlock of initialCounter plus firstIndex + i. Engines may build full batches sliced.
+    internal virtual void EncryptCounters(
+        ReadOnlySpan<byte> roundKeys, ReadOnlySpan<byte> initialCounter, long firstIndex, Span<byte> keystream)
+    {
+        CounterBlock.Fill(keystream, initialCounter, firstIndex);
+        EncryptBlocks(roundKeys, keystream, keystream);
+    }
 
     protected void RequireRound(ReadOnlySpan<byte> state, ReadOnlySpan<byte> k0, ReadOnlySpan<byte> k1)
     {

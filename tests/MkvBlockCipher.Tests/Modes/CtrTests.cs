@@ -320,6 +320,70 @@ public sealed class CtrTests
         Assert.Throws<ObjectDisposedException>(() => cipher.TransformCtr(counter, data));
     }
 
+    public static TheoryData<MkvBlockSize, string, CarryShape> CarryCounterCases()
+    {
+        TheoryData<MkvBlockSize, string, CarryShape> cases = new();
+        foreach (MkvBlockSize blockSize in BlockSizes)
+        {
+            MkvParameters parameters = MkvParameters.Create(blockSize, BlockBytes(blockSize), Revision);
+            foreach (BlockEngine engine in EngineFactory.AllSupported(parameters))
+            {
+                foreach (CarryShape shape in Enum.GetValues<CarryShape>())
+                {
+                    cases.Add(blockSize, engine.GetType().Name, shape);
+                }
+            }
+        }
+
+        return cases;
+    }
+
+    // TransformCtr reaches only the default engine, so each engine is compared through Ctr.Transform.
+    [Theory]
+    [MemberData(nameof(CarryCounterCases))]
+    public void Ctr_matches_default_counter_path_near_carries(
+        MkvBlockSize blockSize, string engineName, CarryShape shape)
+    {
+        using MkvCipher cipher = CreateCipher(blockSize);
+        int blockBytes = BlockBytes(blockSize);
+        MkvParameters parameters = MkvParameters.Create(blockSize, blockBytes, Revision);
+        BlockEngine engine = EngineFactory.AllSupported(parameters).Single(e => e.GetType().Name == engineName);
+        BlockEngine reference = new ScalarEngine(parameters);
+        byte[] roundKeys = cipher.RoundKeys.ToArray();
+        byte[] counter = CarryCounter(blockBytes, shape);
+        // Three batches of this engine, then 5 bytes: the last block is partial, and a sliced engine gets a partial
+        // batch.
+        byte[] plaintext = SeededBytes(3 * engine.BatchBlocks * blockBytes + 5, 3);
+        byte[] expected = new byte[plaintext.Length];
+        byte[] actual = new byte[plaintext.Length];
+
+        Ctr.Transform(reference, roundKeys, counter, plaintext, expected);
+        Ctr.Transform(engine, roundKeys, counter, plaintext, actual);
+
+        Assert.Equal(expected, actual);
+        Assert.Equal(expected, cipher.TransformCtr(counter, plaintext));
+    }
+
+    [Theory]
+    [MemberData(nameof(ModeTestSupport.EngineCases), MemberType = typeof(ModeTestSupport))]
+    public void Wrong_round_key_length_throws_on_every_engine(MkvBlockSize blockSize, string engineName)
+    {
+        int blockBytes = BlockBytes(blockSize);
+        MkvParameters parameters = MkvParameters.Create(blockSize, blockBytes, Revision);
+        BlockEngine engine = EngineFactory.AllSupported(parameters).Single(e => e.GetType().Name == engineName);
+        // One block is far short of 2 * Rounds + 1 blocks. One full batch takes the sliced path on a batching engine.
+        byte[] roundKeys = new byte[blockBytes];
+        byte[] counter = SeededBytes(blockBytes, 2);
+        byte[] plaintext = new byte[engine.BatchBlocks * blockBytes];
+        byte[] destination = Filled(plaintext.Length, Sentinel);
+
+        ArgumentException exception = Assert.Throws<ArgumentException>(
+            () => Ctr.Transform(engine, roundKeys, counter, plaintext, destination));
+
+        Assert.Equal("roundKeys", exception.ParamName);
+        Assert.Equal(Filled(plaintext.Length, Sentinel), destination);
+    }
+
     private static byte[] ReferenceKeystream(MkvCipher cipher, byte[] counter, int blocks)
     {
         int blockBytes = cipher.BlockSizeBytes;
