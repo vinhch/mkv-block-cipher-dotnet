@@ -23,6 +23,9 @@ public sealed class MkvCtrHmac : IDisposable
 
     private const uint FirstCounter = 1;
 
+    // Multiple of every block size (16 and 32), so each chunk starts on a block boundary.
+    private const int FusedChunkBytes = 4096;
+
     private readonly int _blockBytes;
     private readonly MkvCipher _cipher;
     private readonly IncrementalHash _mac;
@@ -110,8 +113,21 @@ public sealed class MkvCtrHmac : IDisposable
 
         Span<byte> counter = stackalloc byte[_blockBytes];
         FillInitialCounter(nonce, counter);
-        _cipher.TransformCtr(counter, plaintext, ciphertext);
-        ComputeTag(associatedData, nonce, ciphertext, tag);
+        AppendAssociatedDataAndNonce(associatedData, nonce);
+
+        // Nothing in this loop may throw: the header is already hashed, and a throw would carry into the next tag.
+        // ThrowIfTooLong keeps the counter from wrapping, so TransformCtrChunk cannot throw here.
+        int offset = 0;
+        while (offset < plaintext.Length)
+        {
+            int chunkBytes = Math.Min(FusedChunkBytes, plaintext.Length - offset);
+            Span<byte> chunk = ciphertext.Slice(offset, chunkBytes);
+            _cipher.TransformCtrChunk(counter, offset / _blockBytes, plaintext.Slice(offset, chunkBytes), chunk);
+            _mac.AppendData(chunk);
+            offset += chunkBytes;
+        }
+
+        FinishTag(associatedData.Length, plaintext.Length, tag);
     }
 
     /// <summary>
@@ -194,6 +210,13 @@ public sealed class MkvCtrHmac : IDisposable
         ReadOnlySpan<byte> ciphertext,
         Span<byte> tag)
     {
+        AppendAssociatedDataAndNonce(associatedData, nonce);
+        _mac.AppendData(ciphertext);
+        FinishTag(associatedData.Length, ciphertext.Length, tag);
+    }
+
+    private void AppendAssociatedDataAndNonce(ReadOnlySpan<byte> associatedData, ReadOnlySpan<byte> nonce)
+    {
         // Appending zero bytes changes nothing, so empty associated data is not hashed.
         if (!associatedData.IsEmpty)
         {
@@ -201,15 +224,20 @@ public sealed class MkvCtrHmac : IDisposable
         }
 
         _mac.AppendData(nonce);
-        _mac.AppendData(ciphertext);
+    }
+
+    // Fixed-width length fields keep the boundaries between the hashed fields unambiguous.
+    private void FinishTag(int associatedDataLength, int ciphertextLength, Span<byte> tag)
+    {
         Span<byte> lengths = stackalloc byte[2 * sizeof(ulong)];
-        BinaryPrimitives.WriteUInt64LittleEndian(lengths, (ulong)associatedData.Length);
-        BinaryPrimitives.WriteUInt64LittleEndian(lengths[sizeof(ulong)..], (ulong)ciphertext.Length);
+        BinaryPrimitives.WriteUInt64LittleEndian(lengths, (ulong)associatedDataLength);
+        BinaryPrimitives.WriteUInt64LittleEndian(lengths[sizeof(ulong)..], (ulong)ciphertextLength);
         _mac.AppendData(lengths);
         _mac.GetHashAndReset(tag);
     }
 
-    // Encrypt writes the ciphertext before it reads the associated data, so any alias would corrupt the tag.
+    // The tag is written last, so it must not alias any input. Ciphertext and tag must not alias the nonce or
+    // associated data, which the public contract rejects.
     private static void RequireDisjoint(ReadOnlySpan<byte> output, ReadOnlySpan<byte> input, string paramName)
     {
         if (MemoryExtensions.Overlaps(output, input))

@@ -351,6 +351,26 @@ public sealed class MkvCtrHmacTests
     }
 
     [Fact]
+    public void Rejected_encrypt_leaves_the_next_tag_unchanged()
+    {
+        using MkvCtrHmac mac = Create(MkvBlockSize.Mkv128);
+        byte[] nonce = SeededBytes(mac.NonceSizeBytes, 2);
+        byte[] associatedData = SeededBytes(AssociatedDataLength, 3);
+        byte[] plaintext = SeededBytes(PlaintextLength, 4);
+        byte[] ciphertext = new byte[PlaintextLength];
+        byte[] expectedTag = new byte[MkvCtrHmac.TagSizeBytes];
+        byte[] tag = new byte[MkvCtrHmac.TagSizeBytes];
+        mac.Encrypt(nonce, plaintext, ciphertext, expectedTag, associatedData);
+
+        byte[] shared = Filled(64, Sentinel);
+        Assert.Throws<ArgumentException>(
+            () => mac.Encrypt(nonce, plaintext, shared.AsSpan(0, PlaintextLength), tag, shared.AsSpan(20, AssociatedDataLength)));
+
+        mac.Encrypt(nonce, plaintext, ciphertext, tag, associatedData);
+        Assert.Equal(expectedTag, tag);
+    }
+
+    [Fact]
     public void Key_is_read_only_during_construction()
     {
         byte[] key = SeededBytes(KeyLength, 1);
