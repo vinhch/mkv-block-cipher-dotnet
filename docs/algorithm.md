@@ -120,7 +120,7 @@ S-box. Split the byte x into nibbles: xl is the high nibble and xr the low nibbl
 
 The inverse S-box is the inverse permutation of S.
 
-On x64 with GFNI, the same construction is carried out in GF(2^8) mod 0x11B, the field the GFNI instructions compute in, and no S-box table is read. Each nibble embeds into that field through beta = 0x5C, a root of t^4 + t + 1. The inversions and the ^2 and ^4 powers above then become GFNI affine and multiply instructions, and the zero cases select between two results instead of branching. The output equals the table S-box for every input, and the tests check all 256 inputs in both directions.
+On x64 with GFNI, the same construction is carried out in GF(2^8) mod 0x11B, the field the GFNI instructions compute in, and no S-box table is read in the single-block path or, when AVX is present, in the batch path. Each nibble embeds into that field through beta = 0x5C, a root of t^4 + t + 1. The inversions and the ^2 and ^4 powers above then become GFNI affine and multiply instructions, and the zero cases select between two results instead of branching. The output equals the table S-box for every input, and the tests check all 256 inputs in both directions.
 
 Mix matrices. M4 = A4^4 and M8 = A8^8, with the powers taken over GF(2^8). A4 is the companion matrix of the coefficients 01 02 01 03, and A8 is the companion matrix of 01 04 DB 0C 14 0C DB 04. A companion matrix has ones on the superdiagonal and the coefficients in the last row. M4^-1 and M8^-1 are the matrix inverses of M4 and M8.
 

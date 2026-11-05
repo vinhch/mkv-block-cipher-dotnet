@@ -165,7 +165,7 @@ benchmarks/                   BenchmarkDotNet project
 docs/                         algorithm, security and benchmark notes
 ```
 
-CI runs in `.github/workflows`. Build runs on Ubuntu, Windows and macOS. Test runs on Ubuntu with the default kernels and with the scalar, GFNI-off and AVX2-off paths, plus an ARM64 macOS leg that fails if its ARM64 tests do not run. Coverage and lint run as their own jobs. All of these run on pushes and pull requests to `main`. Pushing a tag `vX.Y.Z`, optionally with a `-suffix`, packs the library and attaches the `.nupkg` to a GitHub Release. Nothing is published to nuget.org.
+CI runs in `.github/workflows`. Build runs on Ubuntu, Windows and macOS. Test runs on Ubuntu with the default kernels and with the scalar, GFNI-off, AVX2-off and AVX2-and-GFNI-off paths, plus an ARM64 macOS leg that fails if its ARM64 tests do not run. Coverage, lint and the native AOT smoke publish run as their own jobs. All of these run on pushes and pull requests to `main`. Pushing a tag `vX.Y.Z`, optionally with a `-suffix`, packs the library and attaches the `.nupkg` to a GitHub Release. Nothing is published to nuget.org.
 
 ## About this implementation
 
