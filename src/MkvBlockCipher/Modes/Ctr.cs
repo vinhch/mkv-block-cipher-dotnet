@@ -8,35 +8,31 @@ internal static class Ctr
 {
     // Counters and keystream share one scratch buffer. Each batch overwrites the part it uses,
     // so one clear at the end covers all of it.
-    // firstBlock is the index of source's first block in the whole message, so a chunk continues the keystream.
     internal static void Transform(
         BlockEngine engine,
         ReadOnlySpan<byte> roundKeys,
         ReadOnlySpan<byte> initialCounter,
         ReadOnlySpan<byte> source,
-        Span<byte> destination,
-        long firstBlock = 0)
+        Span<byte> destination)
     {
         int blockBytes = engine.Parameters.BlockBytes;
         long blockCount = ((long)source.Length + blockBytes - 1) / blockBytes;
-        // Counted from the initial counter, so the check covers firstBlock through the last block.
-        long endBlock = firstBlock + blockCount;
-        CounterBlock.ThrowIfWouldWrap(initialCounter, endBlock, nameof(source));
+        CounterBlock.ThrowIfWouldWrap(initialCounter, blockCount, nameof(source));
 
         Span<byte> scratch = stackalloc byte[engine.BatchBlocks * blockBytes];
         int offset = 0;
-        long nextBlock = firstBlock;
+        long firstBlock = 0;
         while (offset < source.Length)
         {
-            int batchBlocks = (int)Math.Min(engine.BatchBlocks, endBlock - nextBlock);
+            int batchBlocks = (int)Math.Min(engine.BatchBlocks, blockCount - firstBlock);
             Span<byte> keystream = scratch.Slice(0, batchBlocks * blockBytes);
-            CounterBlock.Fill(keystream, initialCounter, nextBlock);
+            CounterBlock.Fill(keystream, initialCounter, firstBlock);
             engine.EncryptBlocks(roundKeys, keystream, keystream);
 
             int length = Math.Min(keystream.Length, source.Length - offset);
             ByteXor.Xor(source.Slice(offset, length), keystream.Slice(0, length), destination.Slice(offset, length));
             offset += length;
-            nextBlock += batchBlocks;
+            firstBlock += batchBlocks;
         }
 
         CryptographicOperations.ZeroMemory(scratch);

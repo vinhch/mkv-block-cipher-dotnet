@@ -41,15 +41,6 @@ public sealed partial class MkvCipher
         Ctr.Transform(Engine, RoundKeys, initialCounter, source, destination);
     }
 
-    // One chunk of a longer message. firstBlock is the index of source's first block in that message. The caller
-    // checks lengths and overlap for the whole message.
-    internal void TransformCtrChunk(
-        ReadOnlySpan<byte> initialCounter, long firstBlock, ReadOnlySpan<byte> source, Span<byte> destination)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        Ctr.Transform(Engine, RoundKeys, initialCounter, source, destination, firstBlock);
-    }
-
     /// <summary>
     /// Returns the CTR transform of <paramref name="source"/> in a new array of the same length.
     /// </summary>
