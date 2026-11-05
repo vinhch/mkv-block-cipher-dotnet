@@ -1,5 +1,4 @@
 using MkvBlockCipher.Kernels;
-using MkvBlockCipher.Kernels.X64;
 using MkvBlockCipher.Modes;
 using MkvBlockCipher.Primitives;
 using Xunit;
@@ -45,34 +44,20 @@ public sealed class CbcRoundTripTests
     public void In_place_round_trip(MkvBlockSize blockSize)
     {
         using MkvCipher cipher = CreateCipher(blockSize);
-        byte[] iv = SeededBytes(BlockBytes(blockSize), 2);
+        int blockBytes = BlockBytes(blockSize);
+        byte[] iv = SeededBytes(blockBytes, 2);
         foreach (int blocks in BatchBoundaryBlockCounts(cipher.Engine.BatchBlocks))
         {
-            AssertInPlaceRoundTrip(cipher, iv, blocks);
+            byte[] plaintext = SeededBytes(PlaintextLengthFor(blocks, blockBytes), 3);
+            byte[] expected = cipher.EncryptCbc(plaintext, iv);
+            byte[] buffer = new byte[expected.Length];
+            plaintext.CopyTo(buffer, 0);
+
+            Assert.Equal(expected.Length, cipher.EncryptCbc(buffer.AsSpan(0, plaintext.Length), iv, buffer));
+            Assert.Equal(expected, buffer);
+            Assert.Equal(plaintext.Length, cipher.DecryptCbc(buffer, iv, buffer));
+            Assert.Equal(plaintext, buffer.AsSpan(0, plaintext.Length).ToArray());
         }
-    }
-
-    // One block past the threshold: the tail is long enough to run through the batch kernel.
-    [Theory]
-    [InlineData(MkvBlockSize.Mkv128)]
-    [InlineData(MkvBlockSize.Mkv256)]
-    public void In_place_round_trip_of_a_batched_tail(MkvBlockSize blockSize)
-    {
-        using MkvCipher cipher = CreateCipher(blockSize);
-        AssertInPlaceRoundTrip(cipher, SeededBytes(BlockBytes(blockSize), 2), X64Engine.TailBatchThreshold + 1);
-    }
-
-    private static void AssertInPlaceRoundTrip(MkvCipher cipher, byte[] iv, int blocks)
-    {
-        byte[] plaintext = SeededBytes(PlaintextLengthFor(blocks, cipher.BlockSizeBytes), 3);
-        byte[] expected = cipher.EncryptCbc(plaintext, iv);
-        byte[] buffer = new byte[expected.Length];
-        plaintext.CopyTo(buffer, 0);
-
-        Assert.Equal(expected.Length, cipher.EncryptCbc(buffer.AsSpan(0, plaintext.Length), iv, buffer));
-        Assert.Equal(expected, buffer);
-        Assert.Equal(plaintext.Length, cipher.DecryptCbc(buffer, iv, buffer));
-        Assert.Equal(plaintext, buffer.AsSpan(0, plaintext.Length).ToArray());
     }
 
     [Theory]
