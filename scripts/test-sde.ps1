@@ -13,11 +13,17 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $exe = "tests/MkvBlockCipher.Tests/bin/Release/net10.0/MkvBlockCipher.Tests"
 if ($IsWindows) { $exe += ".exe" }
 
+# Knobs this script controls. Each run sets its own values and removes the other names in this list ($null removes an Env: variable),
+# so a caller's exported value never reaches a run. A name a run sets must be listed here.
+$controlledNames = @(
+  "MKV_EXPECT_ENGINE", "MKV_EXPECT_VBMI", "DOTNET_EnableAVX512v2", "DOTNET_PreferredVectorBitWidth", "DOTNET_EnableGFNI"
+)
+
 function Invoke-SdeRun {
   param([string]$Label, [hashtable]$Variables)
   Write-Host "== $Label"
   $saved = @{}
-  foreach ($name in $Variables.Keys) {
+  foreach ($name in $controlledNames) {
     $saved[$name] = [Environment]::GetEnvironmentVariable($name)
     Set-Item -Path "Env:$name" -Value $Variables[$name]
   }
@@ -26,7 +32,7 @@ function Invoke-SdeRun {
     return $LASTEXITCODE
   }
   finally {
-    foreach ($name in $Variables.Keys) {
+    foreach ($name in $controlledNames) {
       if ($null -eq $saved[$name]) {
         Remove-Item -Path "Env:$name" -ErrorAction SilentlyContinue
       }

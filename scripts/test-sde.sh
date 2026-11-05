@@ -14,11 +14,13 @@ if [[ -f "$exe.exe" ]]; then
 fi
 
 # .NET 10 has no VBMI-only knob. DOTNET_EnableAVX512v2 gates IFMA and VBMI; Gfni.V512 has its own knob, EnableGFNI.
+# Clears the caller's values for these knobs so an exported one cannot leak into a run that does not set it.
+unset_flags=(-u MKV_EXPECT_ENGINE -u MKV_EXPECT_VBMI -u DOTNET_EnableAVX512v2 -u DOTNET_PreferredVectorBitWidth -u DOTNET_EnableGFNI)
 run() {
   local label=$1
   shift
   echo "== $label"
-  env "$@" "$SDE_PATH" -icx -- "$exe"
+  env "${unset_flags[@]}" "$@" "$SDE_PATH" -icx -- "$exe"
 }
 
 status=0
