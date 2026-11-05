@@ -1,3 +1,4 @@
+using System.Reflection;
 using MkvBlockCipher.Kernels;
 using MkvBlockCipher.Primitives;
 using Xunit;
@@ -58,25 +59,37 @@ public sealed class EngineParityTests
         AssertRoundsMatch(subject, random);
     }
 
-    // Empty input, one block, the batch boundary on both sides, and a run of several batches with a tail.
-    private static IEnumerable<int> BlockCounts(int batch)
+    // Empty input, each count up to one batch past the boundary, the threshold tail, and several batches with a tail.
+    private static IEnumerable<int> BlockCounts(BlockEngine engine)
     {
+        int batch = engine.BatchBlocks;
         yield return 0;
-        yield return 1;
-        if (batch > 1)
+        for (int blocks = 1; blocks <= batch + 1; blocks++)
         {
-            yield return batch - 1;
+            yield return blocks;
         }
 
-        yield return batch;
-        yield return batch + 1;
+        if (batch > 1)
+        {
+            yield return batch + TailBatchThreshold(engine);
+        }
+
         yield return 3 * batch + 5;
+    }
+
+    // Each batch engine declares TailBatchThreshold as a const. Reading it by name keeps one body for every engine.
+    private static int TailBatchThreshold(BlockEngine engine)
+    {
+        FieldInfo field = engine.GetType().GetField(
+            "TailBatchThreshold", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static)
+            ?? throw new InvalidOperationException($"{engine.GetType().Name} declares no TailBatchThreshold.");
+        return (int)field.GetRawConstantValue()!;
     }
 
     private static void AssertBlocksMatch(Subject subject, Random random, bool inPlace)
     {
         int blockBytes = subject.Parameters.BlockBytes;
-        foreach (int blocks in BlockCounts(subject.Engine.BatchBlocks))
+        foreach (int blocks in BlockCounts(subject.Engine))
         {
             byte[] plaintext = RandomBytes(random, blocks * blockBytes);
             byte[] expectedCiphertext = new byte[plaintext.Length];
