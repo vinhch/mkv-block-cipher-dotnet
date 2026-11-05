@@ -6,7 +6,8 @@ namespace MkvBlockCipher.Kernels.X64;
 
 // S-box as GF(2^4) arithmetic in GF(2^8) mod 0x11B: nibbles embed through beta = 0x5C, a root of t^4 + t + 1, and the
 // result maps back to nibbles. Inversion, products and Frobenius maps run in GF(2^8); zero cases blend, never branch.
-// Construction: docs/algorithm.md, "Where the tables come from". Callers check Gfni.IsSupported (V256 for 256 bits).
+// Construction: docs/algorithm.md, "Where the tables come from". Callers check Gfni.IsSupported (V256 for 256 bits,
+// V512 for 512 bits).
 internal static class SBoxGfni
 {
     private static readonly Vector128<byte> EmbedHigh128 = Vector128.Create(SubfieldMaps.EmbedHigh).AsByte();
@@ -26,6 +27,15 @@ internal static class SBoxGfni
     private static readonly Vector256<byte> Eighth256 = Vector256.Create(SubfieldMaps.Eighth).AsByte();
     private static readonly Vector256<byte> BackHigh256 = Vector256.Create(SubfieldMaps.BackHigh).AsByte();
     private static readonly Vector256<byte> BackLow256 = Vector256.Create(SubfieldMaps.BackLow).AsByte();
+
+    private static readonly Vector512<byte> EmbedHigh512 = Vector512.Create(SubfieldMaps.EmbedHigh).AsByte();
+    private static readonly Vector512<byte> EmbedLow512 = Vector512.Create(SubfieldMaps.EmbedLow).AsByte();
+    private static readonly Vector512<byte> Identity512 = Vector512.Create(SubfieldMaps.Identity).AsByte();
+    private static readonly Vector512<byte> Square512 = Vector512.Create(SubfieldMaps.Square).AsByte();
+    private static readonly Vector512<byte> Fourth512 = Vector512.Create(SubfieldMaps.Fourth).AsByte();
+    private static readonly Vector512<byte> Eighth512 = Vector512.Create(SubfieldMaps.Eighth).AsByte();
+    private static readonly Vector512<byte> BackHigh512 = Vector512.Create(SubfieldMaps.BackHigh).AsByte();
+    private static readonly Vector512<byte> BackLow512 = Vector512.Create(SubfieldMaps.BackLow).AsByte();
 
     internal static Vector128<byte> Forward(Vector128<byte> x)
     {
@@ -116,6 +126,52 @@ internal static class SBoxGfni
             Gfni.V256.GaloisFieldAffineTransform(lowProduct, Fourth256, 0));
         Vector256<byte> high = Gfni.V256.GaloisFieldAffineTransform(xHigh, BackHigh256, 0);
         Vector256<byte> low = Gfni.V256.GaloisFieldAffineTransform(xLow, BackLow256, 0);
+        return high | low;
+    }
+
+    internal static Vector512<byte> Forward(Vector512<byte> x)
+    {
+        Vector512<byte> zero = Vector512<byte>.Zero;
+        Vector512<byte> highElement = Gfni.V512.GaloisFieldAffineTransform(x, EmbedHigh512, 0);
+        Vector512<byte> lowElement = Gfni.V512.GaloisFieldAffineTransform(x, EmbedLow512, 0);
+        Vector512<byte> inverseHigh = Gfni.V512.GaloisFieldAffineTransformInverse(highElement, Identity512, 0);
+        Vector512<byte> inverseHighFourth = Gfni.V512.GaloisFieldAffineTransformInverse(highElement, Fourth512, 0);
+        Vector512<byte> yLow = Vector512.ConditionalSelect(
+            Vector512.Equals(lowElement, zero),
+            inverseHigh,
+            Gfni.V512.GaloisFieldMultiply(inverseHighFourth, lowElement));
+        Vector512<byte> product = Gfni.V512.GaloisFieldMultiply(lowElement, yLow);
+        Vector512<byte> yHigh = Vector512.ConditionalSelect(
+            Vector512.Equals(yLow, zero),
+            Gfni.V512.GaloisFieldAffineTransformInverse(lowElement, Identity512, 0),
+            Gfni.V512.GaloisFieldAffineTransformInverse(product, Square512, 0));
+        Vector512<byte> high = Gfni.V512.GaloisFieldAffineTransform(yHigh, BackHigh512, 0);
+        // The S-box output constant 0x01 is the affine b of the low back-map.
+        Vector512<byte> low = Gfni.V512.GaloisFieldAffineTransform(yLow, BackLow512, 0x01);
+        return high | low;
+    }
+
+    internal static Vector512<byte> Inverse(Vector512<byte> z)
+    {
+        Vector512<byte> zero = Vector512<byte>.Zero;
+        // z ^ 1 flips bit 0 of the low nibble, and phi(n ^ 1) = phi(n) ^ 1, so the 0x01 rides on the low embedding.
+        Vector512<byte> highElement = Gfni.V512.GaloisFieldAffineTransform(z, EmbedHigh512, 0);
+        Vector512<byte> lowElement = Gfni.V512.GaloisFieldAffineTransform(z, EmbedLow512, 0x01);
+        Vector512<byte> inverseLow = Gfni.V512.GaloisFieldAffineTransformInverse(lowElement, Identity512, 0);
+        Vector512<byte> inverseHigh = Gfni.V512.GaloisFieldAffineTransformInverse(highElement, Identity512, 0);
+        Vector512<byte> highEighth = Gfni.V512.GaloisFieldAffineTransform(highElement, Eighth512, 0);
+        Vector512<byte> highEighthTimesLow = Gfni.V512.GaloisFieldMultiply(highEighth, lowElement);
+        Vector512<byte> xLow = Vector512.ConditionalSelect(
+            Vector512.Equals(lowElement, zero),
+            inverseHigh,
+            Gfni.V512.GaloisFieldAffineTransformInverse(highEighthTimesLow, Identity512, 0));
+        Vector512<byte> lowProduct = Gfni.V512.GaloisFieldMultiply(xLow, inverseLow);
+        Vector512<byte> xHigh = Vector512.ConditionalSelect(
+            Vector512.Equals(highElement, zero),
+            inverseLow,
+            Gfni.V512.GaloisFieldAffineTransform(lowProduct, Fourth512, 0));
+        Vector512<byte> high = Gfni.V512.GaloisFieldAffineTransform(xHigh, BackHigh512, 0);
+        Vector512<byte> low = Gfni.V512.GaloisFieldAffineTransform(xLow, BackLow512, 0);
         return high | low;
     }
 }

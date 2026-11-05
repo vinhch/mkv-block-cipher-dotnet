@@ -11,10 +11,16 @@ public sealed class X64PrimitiveTests
 {
     private const string SkipReason = "Needs SSSE3, which this machine lacks.";
     private const string GfniSkipReason = "Needs GFNI, which this machine lacks.";
+    private const string Gfni512SkipReason = "Needs AVX-512 with GFNI, which this machine lacks.";
+    private const string VbmiSkipReason = "Needs AVX-512 VBMI, which this machine lacks.";
 
     public static bool X64Supported => X64Engine.IsSupported;
 
     public static bool GfniSupported => Gfni.IsSupported;
+
+    public static bool Gfni512Supported => Gfni.V512.IsSupported;
+
+    public static bool VbmiSupported => Avx512Vbmi.IsSupported;
 
     [Theory(SkipUnless = nameof(X64Supported), Skip = SkipReason)]
     [InlineData(false)]
@@ -98,6 +104,37 @@ public sealed class X64PrimitiveTests
             ReadOnlySpan<byte> input = Values(start, 32);
             Vector256<byte> vector = Vector256.Create(input);
             Vector256<byte> output = inverse ? SBoxGfni.Inverse(vector) : SBoxGfni.Forward(vector);
+            AssertLanes(Expected(table, input), output);
+        }
+    }
+
+    [Theory(SkipUnless = nameof(Gfni512Supported), Skip = Gfni512SkipReason)]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SBoxGfni512_matches_table_all_bytes(bool inverse)
+    {
+        ReadOnlySpan<byte> table = inverse ? SBoxTables.Inverse : SBoxTables.Forward;
+
+        for (int start = 0; start < 256; start += 64)
+        {
+            ReadOnlySpan<byte> input = Values(start, 64);
+            Vector512<byte> vector = Vector512.Create(input);
+            Vector512<byte> output = inverse ? SBoxGfni.Inverse(vector) : SBoxGfni.Forward(vector);
+            AssertLanes(Expected(table, input), output);
+        }
+    }
+
+    [Theory(SkipUnless = nameof(VbmiSupported), Skip = VbmiSkipReason)]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SBoxPermute_matches_table_all_bytes(bool inverse)
+    {
+        ReadOnlySpan<byte> table = inverse ? SBoxTables.Inverse : SBoxTables.Forward;
+
+        for (int start = 0; start < 256; start += 64)
+        {
+            ReadOnlySpan<byte> input = Values(start, 64);
+            Vector512<byte> output = SBoxPermute.Lookup(Vector512.Create(input), SBoxPermute.Tables(inverse));
             AssertLanes(Expected(table, input), output);
         }
     }
@@ -201,6 +238,13 @@ public sealed class X64PrimitiveTests
     private static void AssertLanes(byte[] expected, Vector256<byte> actual)
     {
         byte[] lanes = new byte[Vector256<byte>.Count];
+        actual.CopyTo(lanes);
+        Assert.Equal(expected, lanes);
+    }
+
+    private static void AssertLanes(byte[] expected, Vector512<byte> actual)
+    {
+        byte[] lanes = new byte[Vector512<byte>.Count];
         actual.CopyTo(lanes);
         Assert.Equal(expected, lanes);
     }
