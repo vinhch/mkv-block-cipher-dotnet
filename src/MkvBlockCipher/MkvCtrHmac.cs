@@ -194,7 +194,12 @@ public sealed class MkvCtrHmac : IDisposable
         ReadOnlySpan<byte> ciphertext,
         Span<byte> tag)
     {
-        _mac.AppendData(associatedData);
+        // Appending zero bytes changes nothing, so empty associated data is not hashed.
+        if (!associatedData.IsEmpty)
+        {
+            _mac.AppendData(associatedData);
+        }
+
         _mac.AppendData(nonce);
         _mac.AppendData(ciphertext);
         Span<byte> lengths = stackalloc byte[2 * sizeof(ulong)];
