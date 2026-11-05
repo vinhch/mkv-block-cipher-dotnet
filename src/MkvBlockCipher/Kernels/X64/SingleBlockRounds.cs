@@ -120,6 +120,16 @@ internal static class SingleBlockRounds
 
     private static void SubCells(Span<Vector128<byte>> chunks, bool inverse)
     {
+        if (Gfni.IsSupported)
+        {
+            for (int chunk = 0; chunk < chunks.Length; chunk++)
+            {
+                chunks[chunk] = inverse ? SBoxGfni.Inverse(chunks[chunk]) : SBoxGfni.Forward(chunks[chunk]);
+            }
+
+            return;
+        }
+
         ReadOnlySpan<Vector128<byte>> rows = SBoxShuffle.Rows128(inverse);
         for (int chunk = 0; chunk < chunks.Length; chunk++)
         {

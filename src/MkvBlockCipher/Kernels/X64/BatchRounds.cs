@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
+using System.Runtime.Intrinsics.X86;
 using System.Security.Cryptography;
 using MkvBlockCipher.Primitives;
 
@@ -99,6 +100,16 @@ internal static class BatchRounds
 
     private static void SubCells(Span<Vector256<byte>> state, bool inverse)
     {
+        if (Gfni.V256.IsSupported)
+        {
+            for (int position = 0; position < state.Length; position++)
+            {
+                state[position] = inverse ? SBoxGfni.Inverse(state[position]) : SBoxGfni.Forward(state[position]);
+            }
+
+            return;
+        }
+
         ReadOnlySpan<Vector256<byte>> rows = SBoxShuffle.Rows256(inverse);
         for (int position = 0; position < state.Length; position++)
         {

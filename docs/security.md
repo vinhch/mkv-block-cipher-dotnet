@@ -6,9 +6,10 @@ Security design, key handling, mode rules and limits for this library. Read it b
 
 `MkvEngine.ConstantTime` is the default. It is designed so that no branch and no memory index depends on secret data: keys, round keys or block state. Each part keeps that rule in its own way.
 
-- S-box on x64 with SSSE3: each table row is a 16-entry byte shuffle. Every row is read for every byte, and a compare keeps the row that the high nibble selects.
+- S-box on x64 without GFNI, with SSSE3: each table row is a 16-entry byte shuffle. Every row is read for every byte, and a compare keeps the row that the high nibble selects.
 - S-box on ARM64: AdvSimd table lookups over tables held in registers, so no load address depends on the data.
 - S-box in the scalar fallback: all 256 entries are read for every byte, and a mask keeps the matching entry.
+- S-box on x64 with GFNI: the subfield evaluation in `algorithm.md` runs as GFNI affine and multiply instructions, so no load address depends on the data. Zero cases select between two results instead of branching. The branches test the CPU flag and the layer direction, never the data.
 - Mix on x64 with GFNI: one affine instruction per constant. Without GFNI: two nibble shuffles and an XOR. On ARM64: nibble lookups. In the scalar fallback: shifts and XORs. The only branch tests the public matrix constant, never the data.
 - CBC padding check: every byte of the last block is read, and the result is built from masks.
 - Tag check in `MkvCtrHmac`: `CryptographicOperations.FixedTimeEquals`.

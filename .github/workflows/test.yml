@@ -17,12 +17,15 @@ jobs:
       fail-fast: false
       matrix:
         # Each x64 leg turns one instruction-set path off, so its fallback runs in CI.
-        # Only the no-AVX2 leg runs the split-half lane shuffle.
+        # On a GFNI host, AVX2 off alone keeps Gfni.V256 on, so the S-layer skips the split-half lane shuffle.
+        # Only no-AVX2-no-GFNI runs it. Its dotnet-env is two lines, one variable each: the step writes the
+        # value to GITHUB_ENV as it is.
         include:
           - { os: ubuntu-latest, leg: default, dotnet-env: "" }
           - { os: ubuntu-latest, leg: no-hwintrinsic, dotnet-env: DOTNET_EnableHWIntrinsic=0 }
           - { os: ubuntu-latest, leg: no-gfni, dotnet-env: DOTNET_EnableGFNI=0 }
           - { os: ubuntu-latest, leg: no-avx2, dotnet-env: DOTNET_EnableAVX2=0 }
+          - { os: ubuntu-latest, leg: no-avx2-no-gfni, dotnet-env: "DOTNET_EnableAVX2=0\nDOTNET_EnableGFNI=0" }
           - { os: macos-14, leg: arm64, dotnet-env: "" }
     name: test (${{ matrix.leg }})
     runs-on: ${{ matrix.os }}
