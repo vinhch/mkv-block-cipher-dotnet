@@ -15,17 +15,9 @@ internal static class BatchRounds
     internal static void Encrypt(
         MkvParameters parameters, ReadOnlySpan<byte> roundKeys, ReadOnlySpan<byte> source, Span<byte> destination)
     {
-        Span<byte> sliced = stackalloc byte[source.Length];
-        ByteSlice.Gather(source, parameters.BlockBytes, sliced);
-        EncryptSliced(parameters, roundKeys, sliced, destination);
-        CryptographicOperations.ZeroMemory(sliced);
-    }
-
-    // sliced holds the batch in byte-sliced form and is overwritten by the rounds. The caller clears it.
-    internal static void EncryptSliced(
-        MkvParameters parameters, ReadOnlySpan<byte> roundKeys, Span<byte> sliced, Span<byte> destination)
-    {
         int blockBytes = parameters.BlockBytes;
+        Span<byte> sliced = stackalloc byte[source.Length];
+        ByteSlice.Gather(source, blockBytes, sliced);
         Span<Vector128<byte>> state = MemoryMarshal.Cast<byte, Vector128<byte>>(sliced);
         for (int round = 0; round < parameters.Rounds; round++)
         {
@@ -38,6 +30,7 @@ internal static class BatchRounds
 
         AddRoundKey(state, RoundKey(roundKeys, blockBytes, 2 * parameters.Rounds));
         ByteSlice.Scatter(sliced, blockBytes, destination);
+        CryptographicOperations.ZeroMemory(sliced);
     }
 
     internal static void Decrypt(

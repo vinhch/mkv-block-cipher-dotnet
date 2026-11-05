@@ -39,28 +39,6 @@ internal static class ModeTestSupport
         return cases;
     }
 
-    public static byte[] CarryCounter(int blockBytes, CarryShape shape)
-    {
-        byte[] counter = new byte[blockBytes];
-        if (shape == CarryShape.Zero)
-        {
-            return counter;
-        }
-
-        counter[^1] = 0xF0;
-        if (shape is CarryShape.LowWord or CarryShape.Ripple)
-        {
-            Array.Fill(counter, (byte)0xFF, blockBytes - 8, 7);
-        }
-
-        if (shape == CarryShape.Ripple)
-        {
-            Array.Fill(counter, (byte)0xFF, blockBytes - 11, 3);
-        }
-
-        return counter;
-    }
-
     public static int BlockBytes(MkvBlockSize blockSize) => blockSize == MkvBlockSize.Mkv128 ? 16 : 32;
 
     public static MkvCipher CreateCipher(MkvBlockSize blockSize) =>

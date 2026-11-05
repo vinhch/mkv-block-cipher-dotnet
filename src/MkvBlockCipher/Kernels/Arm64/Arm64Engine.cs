@@ -1,5 +1,4 @@
 using System.Runtime.Intrinsics.Arm;
-using System.Security.Cryptography;
 using MkvBlockCipher.Primitives;
 
 namespace MkvBlockCipher.Kernels.Arm64;
@@ -42,24 +41,6 @@ internal sealed class Arm64Engine(MkvParameters parameters) : BlockEngine(parame
             SingleBlockRounds.Encrypt(
                 Parameters, roundKeys, source.Slice(offset, blockBytes), destination.Slice(offset, blockBytes));
         }
-    }
-
-    // A full batch with a block-sized counter is built in sliced form. Any other call keeps the default path.
-    internal override void EncryptCounters(
-        ReadOnlySpan<byte> roundKeys, ReadOnlySpan<byte> initialCounter, long firstIndex, Span<byte> keystream)
-    {
-        int blockBytes = Parameters.BlockBytes;
-        if (keystream.Length != BatchBlocks * blockBytes || initialCounter.Length != blockBytes)
-        {
-            base.EncryptCounters(roundKeys, initialCounter, firstIndex, keystream);
-            return;
-        }
-
-        RequireBatch(roundKeys, keystream, keystream);
-        Span<byte> sliced = stackalloc byte[keystream.Length];
-        SlicedCounters.Fill(initialCounter, firstIndex, BatchBlocks, sliced);
-        BatchRounds.EncryptSliced(Parameters, roundKeys, sliced, keystream);
-        CryptographicOperations.ZeroMemory(sliced);
     }
 
     internal override void DecryptBlocks(ReadOnlySpan<byte> roundKeys, ReadOnlySpan<byte> source, Span<byte> destination)

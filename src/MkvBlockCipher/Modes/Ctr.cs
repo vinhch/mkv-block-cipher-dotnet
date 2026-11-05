@@ -26,7 +26,8 @@ internal static class Ctr
         {
             int batchBlocks = (int)Math.Min(engine.BatchBlocks, blockCount - firstBlock);
             Span<byte> keystream = scratch.Slice(0, batchBlocks * blockBytes);
-            engine.EncryptCounters(roundKeys, initialCounter, firstBlock, keystream);
+            CounterBlock.Fill(keystream, initialCounter, firstBlock);
+            engine.EncryptBlocks(roundKeys, keystream, keystream);
 
             int length = Math.Min(keystream.Length, source.Length - offset);
             ByteXor.Xor(source.Slice(offset, length), keystream.Slice(0, length), destination.Slice(offset, length));
