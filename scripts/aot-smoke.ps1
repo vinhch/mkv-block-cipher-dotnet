@@ -1,4 +1,5 @@
 #requires -version 7
+# Run from a VS developer prompt, or set IlcUseEnvironmentalTools=true. Otherwise ILC cannot find vswhere.
 $ErrorActionPreference = "Stop"
 $project = "samples/MkvBlockCipher.AotSmoke/MkvBlockCipher.AotSmoke.csproj"
 $out = "artifacts/aot-smoke"

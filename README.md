@@ -121,7 +121,7 @@ Two revisions, `Rev2024` and `Rev2025` (default), share the S-box, the mix matri
 
 - `MkvEngine.ConstantTime` (default) is designed so that no branch or memory index depends on secret data. It uses x64 SSSE3 kernels (with AVX2 and GFNI where the CPU has them), ARM64 AdvSimd kernels, or a scalar fallback.
 - `MkvEngine.VariableTime` is faster and variable time by design. Use it only for offline or batch work on a host with no untrusted co-resident code. Do not use it on multi-tenant servers, on cloud VMs, or anywhere an attacker can measure timing.
-- A default Native AOT publish runs `X64Engine` with AVX2 off and GFNI on. `-p:IlcInstructionSet=native` turns AVX2 on, as `scripts/aot-smoke.ps1` shows on x64 Windows.
+- On x64 Windows with a CPU that has GFNI, a default Native AOT publish ran `X64Engine` with AVX2 off and GFNI on (`scripts/aot-smoke.ps1`). A publish limited to `x86-64-v2` reported the same flags, so GFNI does not come from the baseline ISA. A CPU without GFNI has not been tested. `-p:IlcInstructionSet=native` turns AVX2 on.
 
 ## Security notes
 
