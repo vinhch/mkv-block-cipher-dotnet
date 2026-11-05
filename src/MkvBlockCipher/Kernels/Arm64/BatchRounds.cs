@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using System.Security.Cryptography;
@@ -13,8 +12,6 @@ internal static class BatchRounds
 {
     private const int WordsPerBlock = 4;
 
-    // Compiled fully optimized on the first call. Dynamic PGO is off for these methods.
-    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     internal static void Encrypt(
         MkvParameters parameters, ReadOnlySpan<byte> roundKeys, ReadOnlySpan<byte> source, Span<byte> destination)
     {
@@ -36,7 +33,6 @@ internal static class BatchRounds
         CryptographicOperations.ZeroMemory(sliced);
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     internal static void Decrypt(
         MkvParameters parameters, ReadOnlySpan<byte> roundKeys, ReadOnlySpan<byte> source, Span<byte> destination)
     {
