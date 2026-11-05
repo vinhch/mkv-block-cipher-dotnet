@@ -22,6 +22,9 @@ internal static class GfMultiply
     internal static Vector256<byte> MultiplyGfni(Vector256<byte> x, byte constant) =>
         Gfni.V256.GaloisFieldAffineTransform(x, Vector256.Create(AffineMatrices[constant]).AsByte(), 0);
 
+    internal static Vector512<byte> MultiplyGfni(Vector512<byte> x, byte constant) =>
+        Gfni.V512.GaloisFieldAffineTransform(x, Vector512.Create(AffineMatrices[constant]).AsByte(), 0);
+
     internal static Vector128<byte> MultiplyNibble(Vector128<byte> x, byte constant)
     {
         Vector128<byte> mask = Vector128.Create((byte)0x0F);

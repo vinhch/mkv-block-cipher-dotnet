@@ -11,10 +11,15 @@ Security design, key handling, mode rules and limits for this library. Read it b
 - S-box in the scalar fallback: all 256 entries are read for every byte, and a mask keeps the matching entry.
 - S-box on x64 with GFNI: the single-block path, and the batch kernels when AVX is present, run the subfield evaluation in `algorithm.md` as GFNI affine and multiply instructions, so no load address depends on the data. Zero cases select between two results instead of branching. The branches test the CPU flag and the layer direction, never the data.
 - Mix on x64 with GFNI: one affine instruction per constant. Without GFNI: two nibble shuffles and an XOR. On ARM64: nibble lookups. In the scalar fallback: shifts and XORs. The only branch tests the public matrix constant, never the data.
+- AVX-512 engine (`X64Avx512Engine`, 64 blocks per batch in 512-bit vectors): the S-box is a VPERMI2B table lookup when the CPU has AVX-512 VBMI, and the GFNI S-box at 512 bits otherwise. Mix is one 512-bit affine instruction per constant. Neither path branches or indexes memory by data.
 - CBC padding check: every byte of the last block is read, and the result is built from masks.
 - Tag check in `MkvCtrHmac`: `CryptographicOperations.FixedTimeEquals`.
 
 The test suite has no timing test, so this is a design property, not a measured one.
+
+The AVX-512 engine needs `Vector512.IsHardwareAccelerated`, AVX-512BW and GFNI at 512 bits. The first follows .NET's default: where .NET does not use 512-bit vectors by default, the 256-bit engines run. `DOTNET_PreferredVectorBitWidth=256` is the opt-out. The engine is tested under Intel SDE, which reports CPU flags but does not time code, so it is not measured on real hardware.
+
+Vector registers are not cleared after use, zmm registers included, as with the ymm registers today. Only the stack copies of a batch are cleared.
 
 `MkvEngine.VariableTime` is variable time by design. Its table lookups index memory by data bytes, so timing depends on the key and the input. Use it only for offline or batch work on a host with no untrusted co-resident code. Do not use it on multi-tenant servers, on cloud VMs, or anywhere an attacker can measure timing.
 

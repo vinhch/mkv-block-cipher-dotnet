@@ -61,11 +61,11 @@ internal static class ByteSlice
         }
     }
 
-    // Only whole 32-lane batches of 16 or 32 block bytes take the vector path, with spans of exactly that size.
+    // Only whole 32- or 64-lane batches of 16 or 32 block bytes take the vector path, with spans of exactly that size.
     // Any other input keeps the scalar loops.
     private static bool IsVectorShape(int lanes, int blockBytes, int blocksLength, int slicedLength) =>
         Sse2.IsSupported
-        && lanes == 32
+        && (lanes == 32 || lanes == 64)
         && (blockBytes == 16 || blockBytes == 32)
         && blocksLength == lanes * blockBytes
         && slicedLength == blocksLength;

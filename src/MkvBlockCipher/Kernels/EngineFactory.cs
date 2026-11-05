@@ -9,7 +9,8 @@ internal static class EngineFactory
     internal static BlockEngine Create(MkvParameters parameters, MkvEngine engine) =>
         engine switch
         {
-            MkvEngine.ConstantTime => X64Engine.IsSupported ? new X64Engine(parameters)
+            MkvEngine.ConstantTime => X64Avx512Engine.IsSupported ? new X64Avx512Engine(parameters)
+                : X64Engine.IsSupported ? new X64Engine(parameters)
                 : Arm64Engine.IsSupported ? new Arm64Engine(parameters)
                 : new ScalarEngine(parameters),
             MkvEngine.VariableTime => new TableEngine(parameters),
@@ -20,6 +21,11 @@ internal static class EngineFactory
     internal static IEnumerable<BlockEngine> AllSupported(MkvParameters parameters)
     {
         yield return new ScalarEngine(parameters);
+        if (X64Avx512Engine.IsSupported)
+        {
+            yield return new X64Avx512Engine(parameters);
+        }
+
         if (X64Engine.IsSupported)
         {
             yield return new X64Engine(parameters);

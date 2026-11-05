@@ -1,4 +1,5 @@
 using MkvBlockCipher.Kernels;
+using MkvBlockCipher.Kernels.X64;
 using MkvBlockCipher.Primitives;
 using Xunit;
 
@@ -6,6 +7,8 @@ namespace MkvBlockCipher.Tests.Kernels;
 
 public sealed class EngineParityTests
 {
+    private const string Avx512SkipReason = "Needs the AVX-512 engine, which this machine lacks.";
+
     private static readonly MkvRevision[] Revisions = [MkvRevision.Rev2024, MkvRevision.Rev2025];
 
     private static readonly (MkvBlockSize BlockSize, int KeyLength)[] KeyLengths =
@@ -17,6 +20,8 @@ public sealed class EngineParityTests
         (MkvBlockSize.Mkv256, 48),
         (MkvBlockSize.Mkv256, 64),
     ];
+
+    public static bool Avx512Supported => X64Avx512Engine.IsSupported;
 
     public static TheoryData<MkvRevision, MkvBlockSize, int, string> EngineCases()
     {
@@ -58,6 +63,21 @@ public sealed class EngineParityTests
         AssertRoundsMatch(subject, random);
     }
 
+    // A tail of TailBatchThreshold - 1 blocks runs one block at a time; TailBatchThreshold blocks runs as a padded batch.
+    [Theory(SkipUnless = nameof(Avx512Supported), Skip = Avx512SkipReason)]
+    [InlineData(MkvBlockSize.Mkv128, 16, X64Avx512Engine.TailBatchThreshold - 1)]
+    [InlineData(MkvBlockSize.Mkv128, 16, X64Avx512Engine.TailBatchThreshold)]
+    [InlineData(MkvBlockSize.Mkv256, 32, X64Avx512Engine.TailBatchThreshold - 1)]
+    [InlineData(MkvBlockSize.Mkv256, 32, X64Avx512Engine.TailBatchThreshold)]
+    public void Avx512_tail_around_threshold_matches_scalar(MkvBlockSize blockSize, int keyLength, int tailBlocks)
+    {
+        Subject subject = Subject.Create(MkvRevision.Rev2025, blockSize, keyLength, nameof(X64Avx512Engine));
+        int[] blockCounts = [subject.Engine.BatchBlocks + tailBlocks];
+
+        AssertBlocksMatch(subject, new Random(3), inPlace: false, blockCounts);
+        AssertBlocksMatch(subject, new Random(4), inPlace: true, blockCounts);
+    }
+
     // Empty input, one block, the batch boundary on both sides, and a run of several batches with a tail.
     private static IEnumerable<int> BlockCounts(int batch)
     {
@@ -73,10 +93,13 @@ public sealed class EngineParityTests
         yield return 3 * batch + 5;
     }
 
-    private static void AssertBlocksMatch(Subject subject, Random random, bool inPlace)
+    private static void AssertBlocksMatch(Subject subject, Random random, bool inPlace) =>
+        AssertBlocksMatch(subject, random, inPlace, BlockCounts(subject.Engine.BatchBlocks));
+
+    private static void AssertBlocksMatch(Subject subject, Random random, bool inPlace, IEnumerable<int> blockCounts)
     {
         int blockBytes = subject.Parameters.BlockBytes;
-        foreach (int blocks in BlockCounts(subject.Engine.BatchBlocks))
+        foreach (int blocks in blockCounts)
         {
             byte[] plaintext = RandomBytes(random, blocks * blockBytes);
             byte[] expectedCiphertext = new byte[plaintext.Length];
