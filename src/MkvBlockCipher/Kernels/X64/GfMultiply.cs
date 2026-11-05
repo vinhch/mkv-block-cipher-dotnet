@@ -42,24 +42,16 @@ internal static class GfMultiply
         return low ^ high;
     }
 
-    // Column j of the matrix is constant times x^j. The instruction reads row i from byte 7 - i of the qword,
-    // and bit j of each row weights input bit j.
+    // Column j of the matrix is constant times x^j.
     internal static ulong AffineMatrix(byte constant)
     {
-        ulong matrix = 0;
+        Span<byte> columns = stackalloc byte[8];
         for (int input = 0; input < 8; input++)
         {
-            byte column = GaloisField.Multiply(constant, (byte)(1 << input));
-            for (int row = 0; row < 8; row++)
-            {
-                if (((column >> row) & 1) != 0)
-                {
-                    matrix |= 1UL << (8 * (7 - row) + input);
-                }
-            }
+            columns[input] = GaloisField.Multiply(constant, (byte)(1 << input));
         }
 
-        return matrix;
+        return GfAffine.FromColumns(columns);
     }
 
     private static ulong[] BuildAffineMatrices()

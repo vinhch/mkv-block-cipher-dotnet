@@ -1,3 +1,4 @@
+using System.Numerics;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
 using MkvBlockCipher.Kernels.X64;
@@ -9,8 +10,11 @@ namespace MkvBlockCipher.Tests.Kernels;
 public sealed class X64PrimitiveTests
 {
     private const string SkipReason = "Needs SSSE3, which this machine lacks.";
+    private const string GfniSkipReason = "Needs GFNI, which this machine lacks.";
 
     public static bool X64Supported => X64Engine.IsSupported;
+
+    public static bool GfniSupported => Gfni.IsSupported;
 
     [Theory(SkipUnless = nameof(X64Supported), Skip = SkipReason)]
     [InlineData(false)]
@@ -69,6 +73,54 @@ public sealed class X64PrimitiveTests
         }
     }
 
+    [Theory(SkipUnless = nameof(GfniSupported), Skip = GfniSkipReason)]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SBoxGfni_matches_table_all_bytes(bool inverse)
+    {
+        ReadOnlySpan<byte> table = inverse ? SBoxTables.Inverse : SBoxTables.Forward;
+
+        for (int start = 0; start < 256; start += 16)
+        {
+            ReadOnlySpan<byte> input = Values(start, 16);
+            Vector128<byte> vector = Vector128.Create(input);
+            Vector128<byte> output = inverse ? SBoxGfni.Inverse(vector) : SBoxGfni.Forward(vector);
+            AssertLanes(Expected(table, input), output);
+        }
+
+        if (!Gfni.V256.IsSupported)
+        {
+            return;
+        }
+
+        for (int start = 0; start < 256; start += 32)
+        {
+            ReadOnlySpan<byte> input = Values(start, 32);
+            Vector256<byte> vector = Vector256.Create(input);
+            Vector256<byte> output = inverse ? SBoxGfni.Inverse(vector) : SBoxGfni.Forward(vector);
+            AssertLanes(Expected(table, input), output);
+        }
+    }
+
+    // Software model, so it runs on every host: every constant, every input byte.
+    [Fact]
+    public void GfAffine_FromColumns_matches_constant_multiply()
+    {
+        byte[] values = Values(0, 256);
+        for (int constant = 0; constant < 256; constant++)
+        {
+            byte[] columns = new byte[8];
+            for (int input = 0; input < 8; input++)
+            {
+                columns[input] = GaloisField.Multiply((byte)constant, (byte)(1 << input));
+            }
+
+            ulong matrix = GfAffine.FromColumns(columns);
+            Assert.Equal(GfMultiply.AffineMatrix((byte)constant), matrix);
+            Assert.Equal(Expected((byte)constant, values), ApplyAffine(matrix, values));
+        }
+    }
+
     // Every entry of the four mixing matrices. Each entry is a multiplier the engine applies.
     private static HashSet<byte> MatrixConstants()
     {
@@ -118,6 +170,25 @@ public sealed class X64PrimitiveTests
         }
 
         return expected;
+    }
+
+    // Output bit i is the parity of row i (byte 7 - i of the qword) and the input, with a zero constant.
+    private static byte[] ApplyAffine(ulong matrix, ReadOnlySpan<byte> values)
+    {
+        byte[] outputs = new byte[values.Length];
+        for (int i = 0; i < values.Length; i++)
+        {
+            int output = 0;
+            for (int row = 0; row < 8; row++)
+            {
+                byte rowBits = (byte)(matrix >> (8 * (7 - row)));
+                output |= (BitOperations.PopCount((uint)(rowBits & values[i])) & 1) << row;
+            }
+
+            outputs[i] = (byte)output;
+        }
+
+        return outputs;
     }
 
     private static void AssertLanes(byte[] expected, Vector128<byte> actual)
