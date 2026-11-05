@@ -17,7 +17,7 @@ Security design, key handling, mode rules and limits for this library. Read it b
 
 The test suite has no timing test, so this is a design property, not a measured one.
 
-The AVX-512 engine needs `Vector512.IsHardwareAccelerated`, AVX-512BW and GFNI at 512 bits. The first follows .NET's default: where .NET does not use 512-bit vectors by default, the 256-bit engines run. `DOTNET_PreferredVectorBitWidth=256` is the opt-out. The engine is tested under Intel SDE, which reports CPU flags but does not time code, so it is not measured on real hardware.
+The AVX-512 engine needs `Vector512.IsHardwareAccelerated`, AVX-512BW and GFNI at 512 bits. The first follows .NET's default: where .NET does not use 512-bit vectors by default, the 256-bit engines run. `DOTNET_PreferredVectorBitWidth=256` is the opt-out. The engine has not been run: no AVX-512 hardware and no Intel SDE run have been done for it, so its correctness and constant-time behavior are unverified. It is not measured on real hardware.
 
 Vector registers are not cleared after use, zmm registers included, as with the ymm registers today. Only the stack copies of a batch are cleared.
 
