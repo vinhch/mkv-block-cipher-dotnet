@@ -8,6 +8,7 @@
     <RepositoryType>git</RepositoryType>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
   <ItemGroup>
     <None Include="..\..\LICENSE" Pack="true" PackagePath="\" />
@@ -16,5 +17,6 @@
   <ItemGroup>
     <InternalsVisibleTo Include="MkvBlockCipher.Tests" />
     <InternalsVisibleTo Include="MkvBlockCipher.Benchmarks" />
+    <InternalsVisibleTo Include="MkvBlockCipher.AotSmoke" />
   </ItemGroup>
 </Project>
