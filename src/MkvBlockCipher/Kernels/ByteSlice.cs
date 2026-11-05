@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
+using System.Security.Cryptography;
 
 namespace MkvBlockCipher.Kernels;
 
@@ -137,5 +138,8 @@ internal static class ByteSlice
         {
             first[i].StoreUnsafe(ref MemoryMarshal.GetReference(destination), (nuint)(i * destinationStride));
         }
+
+        CryptographicOperations.ZeroMemory(MemoryMarshal.AsBytes(first));
+        CryptographicOperations.ZeroMemory(MemoryMarshal.AsBytes(second));
     }
 }
