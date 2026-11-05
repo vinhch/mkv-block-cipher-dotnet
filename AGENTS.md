@@ -23,8 +23,8 @@ Public types, all in `src/MkvBlockCipher/`:
 
 Some facts are copied across files and must change together:
 
-- Benchmark numbers: `docs/benchmarks.md` and the README Benchmarks section, including the note that the numbers predate the current kernels.
-- AVX-512 engine status (unverified): README Engines, `docs/security.md`, `X64Avx512Engine.cs`.
+- Benchmark numbers: `docs/benchmarks.md` and the README Benchmarks section. Only `docs/benchmarks.md` notes that the numbers predate the current kernels.
+- AVX-512 engine status (unverified): README Engines and `docs/security.md`.
 - Rev2025 vectors: `docs/algorithm.md`, `Rev2025Vectors.cs`, `samples/MkvBlockCipher.AotSmoke/Program.cs`.
 
 ## Correctness rules
@@ -37,7 +37,7 @@ Some facts are copied across files and must change together:
 ## Constant-time and performance rules
 
 - `ConstantTime` engines never branch on or index memory by secret data: keys, round keys or block state. Branches test CPU flags or public values (lengths, block counts, revision, layer direction). `TableEngine` is the only variable-time engine; it backs `MkvEngine.VariableTime` and nothing else.
-- No heap allocation in round loops or span paths: scratch is `stackalloc` per call, tables are `static readonly`. The `byte[]` overloads allocate only their result.
+- No heap allocation in round loops or span paths: scratch is `stackalloc` per call; tables are `static ReadOnlySpan<byte>` properties over constant data, or `static readonly` fields built once. The `byte[]` overloads allocate their result, and `DecryptCbc` also a scratch buffer of the ciphertext length.
 - In encryption and decryption, virtual dispatch through `BlockEngine` happens at most once per block or batch, never per round; engine classes are sealed. The key schedule is the exception: it calls `engine.Round` 4R times, once per key.
 - Nothing enforces these rules but review: no analyzer or test checks allocation, dispatch or timing.
 - Measure before and after a performance change (`scripts/bench`); the benchmark project refuses non-optimized builds.

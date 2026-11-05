@@ -12,7 +12,8 @@ The MKV block cipher as this library computes it: notation, block layout, round 
 | `^` | Bitwise XOR, always written with spaces: `a ^ b` |
 | `·` | Multiplication in GF(2^8). Between a `t x t` matrix and a word, the matrix-vector product over GF(2^8) |
 | `*` | Multiplication in GF(2^4), used only in the S-box construction |
-| `pow(a, n)` | `a` multiplied by itself `n` times, in the field or matrix ring at hand |
+| `pow(a, n)` | The product of `n` copies of `a`, in the field or matrix ring at hand |
+| `×`, `/`, `mod` | Integer multiplication, division and remainder on indices and counts |
 | `inv(a)` | Multiplicative inverse in GF(2^4), with `inv(0) = 0` |
 | `inverse(M)` | Matrix inverse over GF(2^8) |
 | `<<`, `\|` | Shift left by bits, bitwise OR |
@@ -27,7 +28,7 @@ The MKV block cipher as this library computes it: notation, block layout, round 
 
 ## State
 
-A block is four words of `t` bytes. Word `i` is bytes `i*t` to `i*t + t - 1`. Bytes keep their plain order. No endianness conversion happens anywhere.
+A block is four words of `t` bytes. Word `i` is bytes `i×t` to `i×t + t - 1`. Bytes keep their plain order. No endianness conversion happens anywhere.
 
 Arithmetic runs in [GF(2^8)](https://en.wikipedia.org/wiki/Finite_field_arithmetic): a byte is a polynomial over GF(2) with bit 0 as the constant term, and products are reduced by x^8 + x^5 + x^3 + x + 1 (0x12B). The S-box and the mix matrices are fixed; [Where the tables come from](#where-the-tables-come-from) gives each one in full and its construction.
 
@@ -49,9 +50,9 @@ The steps, in order:
 MixWords works on each word i, counting words from 0. `M` is the matrix for the word size (M4 when `t` is 4, M8 when `t` is 8), and the word is a column vector whose element `j` is byte `j` of the word, so output byte `r` is the XOR over `c` of `M[r][c] · x[c]`:
 
 - Rev2024: `y = M · x`.
-- Rev2025: `y = M · RotL(x, i·t/4)`. Word i rotates left by `i·t/4` bytes first: `i` bytes for `Mkv128`, `2i` bytes for `Mkv256`.
+- Rev2025: `y = M · RotL(x, i×t/4)`. Word i rotates left by `i×t/4` bytes first: `i` bytes for `Mkv128`, `2i` bytes for `Mkv256`.
 
-InvMixWords is the inverse, word by word: `x = inverse(M) · y` for Rev2024, and `x = RotR(inverse(M) · y, i·t/4)` for Rev2025.
+InvMixWords is the inverse, word by word: `x = inverse(M) · y` for Rev2024, and `x = RotR(inverse(M) · y, i×t/4)` for Rev2025.
 
 XWords is its own inverse. The inverse round runs the steps in reverse: XWords, SI, XOR K1, InvMixWords, SI, XOR K0.
 
