@@ -6,7 +6,7 @@ namespace MkvBlockCipher;
 public sealed partial class MkvCipher
 {
     /// <summary>
-    /// Wraps key data with AES Key Wrap (RFC 3394, NIST SP 800-38F) into a new array 8 bytes longer than the input.
+    /// Wraps key data with the MKV key wrap (the RFC 3394 construction, NIST SP 800-38F) into a new array 8 bytes longer than the input.
     /// </summary>
     /// <remarks>
     /// The input is a whole number of 8-byte blocks, at least 16 bytes. Key wrap needs a 128-bit block, so it is
@@ -25,7 +25,7 @@ public sealed partial class MkvCipher
     }
 
     /// <summary>
-    /// Wraps key data with AES Key Wrap into <paramref name="destination"/>, which must be 8 bytes longer than the
+    /// Wraps key data with the MKV key wrap into <paramref name="destination"/>, which must be 8 bytes longer than the
     /// plaintext. The plaintext and the destination may start at the same offset for in-place use.
     /// </summary>
     /// <param name="plaintext">Key data: a multiple of 8 bytes, at least 16.</param>
@@ -51,7 +51,7 @@ public sealed partial class MkvCipher
     }
 
     /// <summary>
-    /// Unwraps an AES Key Wrap value into a new array 8 bytes shorter than the ciphertext.
+    /// Unwraps an MKV key wrap value into a new array 8 bytes shorter than the ciphertext.
     /// </summary>
     /// <param name="ciphertext">A wrapped key: a multiple of 8 bytes, at least 24.</param>
     /// <returns>The key data.</returns>
@@ -67,7 +67,7 @@ public sealed partial class MkvCipher
     }
 
     /// <summary>
-    /// Unwraps an AES Key Wrap value into <paramref name="destination"/>. The ciphertext and the destination may start
+    /// Unwraps an MKV key wrap value into <paramref name="destination"/>. The ciphertext and the destination may start
     /// at the same offset for in-place use.
     /// </summary>
     /// <remarks>
@@ -113,7 +113,7 @@ public sealed partial class MkvCipher
     }
 
     /// <summary>
-    /// Wraps key data of any non-zero length with AES Key Wrap with Padding (RFC 5649, NIST SP 800-38F) into a new array.
+    /// Wraps key data of any non-zero length with the MKV key wrap with padding (the RFC 5649 construction, NIST SP 800-38F) into a new array.
     /// </summary>
     /// <remarks>
     /// Key wrap needs a 128-bit block, so it is available only for <see cref="MkvBlockSize.Mkv128"/>. The output is
@@ -132,7 +132,7 @@ public sealed partial class MkvCipher
     }
 
     /// <summary>
-    /// Wraps key data with AES Key Wrap with Padding into <paramref name="destination"/>, which must be exactly
+    /// Wraps key data with the MKV key wrap with padding into <paramref name="destination"/>, which must be exactly
     /// <see cref="GetKeyWrapPaddedLength"/> bytes long. The plaintext and the destination may start at the same offset
     /// for in-place use.
     /// </summary>
@@ -159,7 +159,7 @@ public sealed partial class MkvCipher
     }
 
     /// <summary>
-    /// Unwraps an AES Key Wrap with Padding value into a new array of the recovered key length.
+    /// Unwraps an MKV key wrap with padding value into a new array of the recovered key length.
     /// </summary>
     /// <param name="ciphertext">A wrapped key: a multiple of 8 bytes, at least 16.</param>
     /// <returns>The key data.</returns>
@@ -179,7 +179,7 @@ public sealed partial class MkvCipher
     }
 
     /// <summary>
-    /// Unwraps an AES Key Wrap with Padding value into <paramref name="destination"/>. The ciphertext and the destination
+    /// Unwraps an MKV key wrap with padding value into <paramref name="destination"/>. The ciphertext and the destination
     /// may start at the same offset for in-place use.
     /// </summary>
     /// <remarks>
@@ -207,7 +207,7 @@ public sealed partial class MkvCipher
     }
 
     /// <summary>
-    /// Attempts to unwrap an AES Key Wrap with Padding value into <paramref name="destination"/>.
+    /// Attempts to unwrap an MKV key wrap with padding value into <paramref name="destination"/>.
     /// </summary>
     /// <remarks>
     /// Returns false, writing nothing, when <paramref name="destination"/> holds less than <c>ciphertext.Length - 8</c>
@@ -250,7 +250,7 @@ public sealed partial class MkvCipher
     }
 
     /// <summary>
-    /// Gets the output length of AES Key Wrap with Padding for a plaintext length: the plaintext rounded up to a whole
+    /// Gets the output length of the MKV key wrap with padding for a plaintext length: the plaintext rounded up to a whole
     /// number of 8-byte blocks, plus 8.
     /// </summary>
     /// <param name="plaintextLength">Key data length in bytes, at least one.</param>

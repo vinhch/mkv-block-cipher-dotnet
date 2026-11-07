@@ -1,6 +1,6 @@
 # MkvBlockCipher
 
-MkvBlockCipher is a .NET library for the MKV block cipher, with 128-bit and 256-bit blocks, CBC (padded, unpadded or ciphertext stealing) and CTR modes, an authenticated mode (CTR with HMAC-SHA256), GCM (SP 800-38D authenticated encryption, 128-bit blocks only), CCM (SP 800-38C authenticated encryption, 128-bit blocks only), AES key wrap (KW and KWP, 128-bit blocks only), and XTS (IEEE 1619 sector encryption, 128-bit blocks only).
+MkvBlockCipher is a .NET library for the MKV block cipher, with 128-bit and 256-bit blocks, CBC (padded, unpadded or ciphertext stealing) and CTR modes, an authenticated mode (CTR with HMAC-SHA256), GCM (SP 800-38D authenticated encryption, 128-bit blocks only), CCM (SP 800-38C authenticated encryption, 128-bit blocks only), MKV key wrap (KW and KWP, 128-bit blocks only), and XTS (IEEE 1619 sector encryption, 128-bit blocks only).
 
 This is an unofficial implementation and has not been audited. Read [docs/security.md](docs/security.md) before you protect data with it.
 
@@ -81,10 +81,10 @@ Block cipher and modes under one key. Implements `IDisposable`.
 | `byte[] DecryptCbc(ciphertext, iv, paddingMode = PKCS7)`, `int DecryptCbc(ciphertext, iv, destination, paddingMode = PKCS7)`, `bool TryDecryptCbc(ciphertext, iv, destination, out bytesWritten, paddingMode = PKCS7)` | CBC with padding removed. Bad padding throws `CryptographicException`. `PaddingMode.None` returns the ciphertext length and does not check padding |
 | `byte[] EncryptCbcCts(plaintext, iv)`, `void EncryptCbcCts(plaintext, iv, destination)`, `byte[] DecryptCbcCts(ciphertext, iv)`, `void DecryptCbcCts(ciphertext, iv, destination)` | CBC ciphertext stealing (CS3): the output is the input length and no padding is added. Input is at least `BlockSizeBytes`; the destination must match the input length. One-block input is plain CBC. Unauthenticated |
 | `void TransformCtr(initialCounter, source, destination)`, `byte[] TransformCtr(initialCounter, source)` | CTR keystream XOR. Encryption and decryption are the same call |
-| `byte[] EncryptKeyWrap(plaintext)`, `void EncryptKeyWrap(plaintext, destination)` | AES Key Wrap (RFC 3394, SP 800-38F). Input is a multiple of 8 bytes, at least 16. Output is 8 bytes longer. `Mkv128` only: `Mkv256` throws `InvalidOperationException` |
-| `byte[] DecryptKeyWrap(ciphertext)`, `int DecryptKeyWrap(ciphertext, destination)` | Unwraps AES Key Wrap. A failed integrity check zeroes the destination and throws `CryptographicException` |
-| `byte[] EncryptKeyWrapPadded(plaintext)`, `void EncryptKeyWrapPadded(plaintext, destination)`, `int GetKeyWrapPaddedLength(plaintextLength)` (static) | AES Key Wrap with Padding (RFC 5649). Any non-empty input. The output is the input rounded up to 8 bytes, plus 8 bytes. `Mkv128` only |
-| `byte[] DecryptKeyWrapPadded(ciphertext)`, `int DecryptKeyWrapPadded(ciphertext, destination)`, `bool TryDecryptKeyWrapPadded(ciphertext, destination, out bytesWritten)` | Unwraps AES Key Wrap with Padding. The key length comes from the wrapped value. A failed check throws `CryptographicException`. `TryDecrypt` returns `false` when the destination is shorter than `ciphertext.Length - 8` |
+| `byte[] EncryptKeyWrap(plaintext)`, `void EncryptKeyWrap(plaintext, destination)` | MKV key wrap (the RFC 3394 construction, SP 800-38F). Input is a multiple of 8 bytes, at least 16. Output is 8 bytes longer. `Mkv128` only: `Mkv256` throws `InvalidOperationException` |
+| `byte[] DecryptKeyWrap(ciphertext)`, `int DecryptKeyWrap(ciphertext, destination)` | Unwraps MKV key wrap. A failed integrity check zeroes the destination and throws `CryptographicException` |
+| `byte[] EncryptKeyWrapPadded(plaintext)`, `void EncryptKeyWrapPadded(plaintext, destination)`, `int GetKeyWrapPaddedLength(plaintextLength)` (static) | MKV key wrap with padding (the RFC 5649 construction). Any non-empty input. The output is the input rounded up to 8 bytes, plus 8 bytes. `Mkv128` only |
+| `byte[] DecryptKeyWrapPadded(ciphertext)`, `int DecryptKeyWrapPadded(ciphertext, destination)`, `bool TryDecryptKeyWrapPadded(ciphertext, destination, out bytesWritten)` | Unwraps MKV key wrap with padding. The key length comes from the wrapped value. A failed check throws `CryptographicException`. `TryDecrypt` returns `false` when the destination is shorter than `ciphertext.Length - 8` |
 | `void Dispose()` | Zeroes the round keys. Later calls throw `ObjectDisposedException` |
 
 ### MkvCtrHmac

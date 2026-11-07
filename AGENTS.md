@@ -1,6 +1,6 @@
 # Agent guide
 
-MkvBlockCipher is a .NET library (`net10.0`) for the MKV block cipher: `Mkv128` and `Mkv256` blocks, with block, CBC (including ciphertext stealing), CTR and CTR-then-HMAC modes, GCM (`Mkv128` only), CCM (`Mkv128` only), AES key wrap (KW and KWP, `Mkv128` only), and XTS (`Mkv128` only). Correctness is the bar: a change is right when every engine still produces the reference outputs, and the default engine stays constant-time. The repository is licensed for viewing only (`LICENSE`): never describe it as open source.
+MkvBlockCipher is a .NET library (`net10.0`) for the MKV block cipher: `Mkv128` and `Mkv256` blocks, with block, CBC (including ciphertext stealing), CTR and CTR-then-HMAC modes, GCM (`Mkv128` only), CCM (`Mkv128` only), MKV key wrap (KW and KWP, `Mkv128` only), and XTS (`Mkv128` only). Correctness is the bar: a change is right when every engine still produces the reference outputs, and the default engine stays constant-time. The repository is licensed for viewing only (`LICENSE`): never describe it as open source.
 
 Public types, all in `src/MkvBlockCipher/`:
 
