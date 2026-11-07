@@ -45,4 +45,5 @@ XTS over MKV-128, with the sector number as the tweak. The XTS data-unit limit a
 | CBC-CTS: file names, fscrypt-style | `MkvCipher.EncryptCbcCts`, `MkvCipher.DecryptCbcCts` |
 | CTR | `MkvCipher.TransformCtr` |
 | CTR then HMAC-SHA256 with associated data | `MkvCtrHmac.Encrypt`, `MkvCtrHmac.Decrypt` |
+| XTS: sector-layer encryption | `MkvXts.Encrypt`, `MkvXts.Decrypt` (data unit of 16 bytes to 2^20 blocks; unauthenticated). `Mkv128` only |
 | Key wrap: per-file or per-dataset keys | `MkvCipher.EncryptKeyWrap`, `MkvCipher.DecryptKeyWrap` (KW, multiple of 8 bytes); `MkvCipher.EncryptKeyWrapPadded`, `MkvCipher.DecryptKeyWrapPadded` (KWP, any length). `Mkv128` only |
