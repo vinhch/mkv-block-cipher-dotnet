@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Security.Cryptography;
 using MkvBlockCipher.Kernels;
 
@@ -17,6 +18,7 @@ internal static class Cbc
         PaddingMode padding = PaddingMode.PKCS7)
     {
         int blockBytes = engine.Parameters.BlockBytes;
+        Debug.Assert(padding != PaddingMode.None || plaintext.Length % blockBytes == 0, "PaddingMode.None needs whole blocks.");
         int fullBytes = plaintext.Length - plaintext.Length % blockBytes;
         Span<byte> block = stackalloc byte[blockBytes];
         ReadOnlySpan<byte> previous = iv;
