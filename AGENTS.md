@@ -1,6 +1,6 @@
 # Agent guide
 
-MkvBlockCipher is a .NET library (`net10.0`) for the MKV block cipher: `Mkv128` and `Mkv256` blocks, with block, CBC (including ciphertext stealing), CTR and CTR-then-HMAC modes, GCM (`Mkv128` only), AES key wrap (KW and KWP, `Mkv128` only), and XTS (`Mkv128` only). Correctness is the bar: a change is right when every engine still produces the reference outputs, and the default engine stays constant-time. The repository is licensed for viewing only (`LICENSE`): never describe it as open source.
+MkvBlockCipher is a .NET library (`net10.0`) for the MKV block cipher: `Mkv128` and `Mkv256` blocks, with block, CBC (including ciphertext stealing), CTR and CTR-then-HMAC modes, GCM (`Mkv128` only), CCM (`Mkv128` only), AES key wrap (KW and KWP, `Mkv128` only), and XTS (`Mkv128` only). Correctness is the bar: a change is right when every engine still produces the reference outputs, and the default engine stays constant-time. The repository is licensed for viewing only (`LICENSE`): never describe it as open source.
 
 Public types, all in `src/MkvBlockCipher/`:
 
@@ -10,6 +10,7 @@ Public types, all in `src/MkvBlockCipher/`:
 | `MkvCtrHmac` | CTR then HMAC-SHA256 with associated data, 32-byte key and tag |
 | `MkvXts` | IEEE 1619 XTS over one data unit, 32- or 64-byte key (data half and tweak half), `Mkv128` only |
 | `MkvGcm` | GCM (SP 800-38D) over MKV-128: 16, 24 or 32-byte key, 12-byte nonce, 12 to 16-byte tag, `Mkv128` only |
+| `MkvCcm` | CCM (SP 800-38C) over MKV-128: 16, 24 or 32-byte key, 7 to 13-byte nonce, 4 to 16-byte even tag, `Mkv128` only |
 | `MkvBlockSize` | `Mkv128` (16-byte block) or `Mkv256` (32-byte block) |
 | `MkvRevision` | `Rev2024` (earlier draft) or `Rev2025` (default) |
 | `MkvEngine` | `ConstantTime` (default) or `VariableTime` (table lookups, timing depends on data) |
@@ -55,7 +56,7 @@ Some facts are copied across files and must change together:
 
 ## Layout
 
-- `src/MkvBlockCipher/`: public types at the root; `Kernels/` holds the engines (`ScalarEngine`, `TableEngine`, `X64/` with SSSE3, GFNI and AVX-512 paths, `Arm64/` with AdvSimd); `Modes/` holds CBC, CTR, GCM and GHASH, key wrap, XTS, padding and CTR-HMAC key derivation; `Primitives/` holds tables, parameters and the key schedule.
+- `src/MkvBlockCipher/`: public types at the root; `Kernels/` holds the engines (`ScalarEngine`, `TableEngine`, `X64/` with SSSE3, GFNI and AVX-512 paths, `Arm64/` with AdvSimd); `Modes/` holds CBC, CTR, CCM, GCM and GHASH, key wrap, XTS, padding and CTR-HMAC key derivation; `Primitives/` holds tables, parameters and the key schedule.
 - `tests/MkvBlockCipher.Tests/`: xUnit v3 on Microsoft.Testing.Platform, mirroring the source folders; reference values in `TestData/`.
 - `benchmarks/MkvBlockCipher.Benchmarks/`: BenchmarkDotNet, Release only.
 - `samples/MkvBlockCipher.AotSmoke/`: native AOT publish check.
