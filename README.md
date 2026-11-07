@@ -51,7 +51,7 @@ byte[] decrypted = new byte[encrypted.Length];
 aead.Decrypt(nonce, encrypted, tag, decrypted);
 ```
 
-Use `MkvCtrHmac` for data from untrusted sources. Limits and key handling are in [docs/security.md](docs/security.md).
+Use `MkvCtrHmac`, `MkvGcm` or `MkvCcm` for data from untrusted sources. Limits and key handling are in [docs/security.md](docs/security.md).
 
 ## API reference
 
@@ -142,6 +142,7 @@ CCM (SP 800-38C) with MKV-128 as the block cipher: authenticated encryption with
 | --- | --- |
 | `ArgumentException` | A length is wrong, or two buffers partially overlap. `ParamName` names the argument |
 | `CryptographicException` | Bad padding, a bad tag or a failed key-wrap integrity check. The message is always "The data could not be decrypted." |
+| `InvalidOperationException` | Key wrap methods on an `Mkv256` instance |
 | `ObjectDisposedException` | A method is called after `Dispose` |
 
 ## Advanced usage
@@ -187,7 +188,7 @@ Throughput in MB/s (10^6 bytes per second) on a 1 MiB payload, with `ConstantTim
 | GCM encrypt | 185.09 | n/a |
 | XTS encrypt | 273.21 | n/a |
 
-The GCM and XTS rows are from a `--quick` run with a wide Error; see docs/benchmarks.md.
+The GCM and XTS rows are from a `--quick` run with a wide Error; see docs/benchmarks.md. They come from a later quick run on the current kernels, so they are not directly comparable with the other rows, which predate them.
 
 The full tables, the kernel-path rows and the VariableTime gate are in [docs/benchmarks.md](docs/benchmarks.md).
 

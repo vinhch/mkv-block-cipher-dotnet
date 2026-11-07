@@ -26,7 +26,7 @@ Sector-layer encryption has no room for extra bytes. Each sector or data unit is
 - XTS is length-preserving: a sector encrypts to the same size, so it has no room for a tag. IEEE 1619 defines XTS. [SP 800-38E](https://csrc.nist.gov/pubs/sp/800/38/e/final) approves XTS only with AES; XTS over MKV-128 is an inference, as for GCM.
 - CTS keeps names length-preserving: ciphertext stealing encrypts the final partial block without padding ([SP 800-38A addendum](https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a-add.pdf)).
 - Key wrap protects per-file keys stored in metadata. The wrapping key also checks integrity on unwrap ([SP 800-38F](https://csrc.nist.gov/pubs/sp/800/38/f/final)). KW and KWP need a 128-bit block cipher.
-- Limits: GCM with random 96-bit IVs allows at most 2^32 invocations per key ([SP 800-38D](https://csrc.nist.gov/pubs/sp/800/38/d/final)). Truncated GCM tags are for restricted uses only ([SP 800-38D](https://csrc.nist.gov/pubs/sp/800/38/d/final)). CCM tags are 4 to 16 bytes ([SP 800-38C](https://csrc.nist.gov/pubs/sp/800/38/c/upd1/final)). An XTS data unit is at most 2^20 blocks ([SP 800-38E](https://csrc.nist.gov/pubs/sp/800/38/e/final)).
+- Limits: GCM with random 96-bit IVs allows at most 2^32 invocations per key ([SP 800-38D](https://csrc.nist.gov/pubs/sp/800/38/d/final)). Truncated GCM tags are for restricted uses only ([SP 800-38D](https://csrc.nist.gov/pubs/sp/800/38/d/final)). CCM tags are 4 to 16 bytes, even lengths only ([SP 800-38C](https://csrc.nist.gov/pubs/sp/800/38/c/upd1/final)). An XTS data unit is at most 2^20 blocks ([SP 800-38E](https://csrc.nist.gov/pubs/sp/800/38/e/final)).
 
 ## MKV in a ZFS-style design
 

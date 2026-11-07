@@ -8,7 +8,7 @@ public sealed class GcmTests
     private const int TagBytes = 16;
 
     // GCM specification test cases 1-4 (AES-128), 7-10 (AES-192) and 13-16 (AES-256), 96-bit IVs and full 16-byte tags.
-    // Copied from the GCM specification (NIST SP 800-38D), Appendix B, without change.
+    // Copied from the GCM specification test cases, without change.
     [Theory]
     // Test case 1: empty plaintext, no AAD.
     [InlineData(

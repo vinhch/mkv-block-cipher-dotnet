@@ -104,8 +104,8 @@ internal static class KeyWrap
             UnwrapSemiblocks(engine, roundKeys, ciphertext, destination, recoveredValue);
         }
 
-        // Every check runs before the one decision, so no early exit depends on the unwrapped bytes. The MLI is
-        // compared through a sign mask, not a branch.
+        // Every check runs before the one decision, so no early exit depends on the unwrapped bytes.
+        // The MLI range check is plain comparisons combined with `&`; the sign mask is used only in the padding loop.
         long mli = BinaryPrimitives.ReadUInt32BigEndian(recoveredValue.Slice(4));
         bool prefixOk = CryptographicOperations.FixedTimeEquals(recoveredValue.Slice(0, 4), PaddingPrefix);
         bool lengthOk = (mli > SemiblockBytes * (long)(blockCount - 1)) & (mli <= paddedLength);
