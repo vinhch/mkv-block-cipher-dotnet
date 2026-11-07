@@ -7,7 +7,7 @@ public enum MkvRevision
     Rev2024,
 
     /// <summary>
-    /// The specification in publicly available reference material: MixWords rotation, key-schedule round constants,
+    /// This project's interpretation of publicly available reference material: MixWords rotation, key-schedule round constants,
     /// round counts 7, 8 and 9.
     /// </summary>
     Rev2025,

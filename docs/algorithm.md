@@ -105,7 +105,7 @@ Rev2025 constants, as hex in block byte order:
 
 This section lists the parts that differ between the two revisions. The rest of the algorithm is shared.
 
-`Rev2024` follows the earlier draft. `Rev2025` follows the specification in publicly available reference material, and it is the default. The revision names are this project's labels. Neither revision is claimed to be official.
+`Rev2024` follows the earlier draft. `Rev2025` follows this project's interpretation of publicly available reference material, and it is the default. The revision names are this project's labels. Neither revision is claimed to be official.
 
 | Part | Rev2024 | Rev2025 |
 | --- | --- | --- |

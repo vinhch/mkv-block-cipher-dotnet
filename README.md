@@ -2,7 +2,7 @@
 
 MkvBlockCipher is a .NET library for the MKV block cipher, with 128-bit and 256-bit blocks, CBC (padded, unpadded or ciphertext stealing) and CTR modes, an authenticated mode (CTR with HMAC-SHA256), GCM (SP 800-38D authenticated encryption, 128-bit blocks only), CCM (SP 800-38C authenticated encryption, 128-bit blocks only), MKV key wrap (KW and KWP, 128-bit blocks only), and XTS (IEEE 1619 sector encryption, 128-bit blocks only).
 
-This is an unofficial implementation and has not been audited. Read [docs/security.md](docs/security.md) before you protect data with it.
+This is an unofficial implementation and has not been audited. Read [DISCLAIMER.md](DISCLAIMER.md) and [docs/security.md](docs/security.md) before you protect data with it.
 
 ## Installation
 
@@ -213,11 +213,11 @@ benchmarks/                   BenchmarkDotNet project
 docs/                         algorithm, security and benchmark notes
 ```
 
-CI runs in `.github/workflows`. Build runs on Ubuntu, Windows and macOS. Test runs on Ubuntu with the default kernels and with the scalar, GFNI-off, AVX2-off and AVX2-and-GFNI-off paths, plus an ARM64 macOS leg that fails if its ARM64 tests do not run. Coverage, lint and the native AOT smoke publish run as their own jobs. All of these run on pushes and pull requests to `main`. Pushing a tag `vX.Y.Z`, optionally with a `-suffix`, packs the library and attaches the `.nupkg` to a GitHub Release. Nothing is published to nuget.org.
+CI runs in `.github/workflows`. Build runs on Ubuntu, Windows and macOS. Test runs on Ubuntu with the default kernels and with the scalar, GFNI-off, AVX2-off and AVX2-and-GFNI-off paths, plus an ARM64 macOS leg that fails if its ARM64 tests do not run. Coverage, lint and the native AOT smoke publish run as their own jobs. All of these run on pushes and pull requests to `main`. Pushing a tag `vX.Y.Z`, optionally with a `-suffix`, packs the library and creates a GitHub Release without the `.nupkg` attached. No package is published anywhere.
 
 ## About this implementation
 
-MKV was publicly announced as a proposed Vietnamese national standard (TCVN) block cipher. This repository is an independent interpretation and implementation of MKV, built solely from publicly announced information. It does not reference, reproduce, or link to any external document. It is not affiliated with or endorsed by any standards body or the algorithm's designers, and it has not been independently audited.
+This repository is an independent, unofficial interpretation of the MKV block cipher, based only on publicly available reference material. It is not affiliated with or endorsed by any standards body or the algorithm's designers; see [DISCLAIMER.md](DISCLAIMER.md).
 
 ## License
 

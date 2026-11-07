@@ -13,6 +13,7 @@
   <ItemGroup>
     <None Include="..\..\LICENSE" Pack="true" PackagePath="\" />
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\DISCLAIMER.md" Pack="true" PackagePath="\" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="MkvBlockCipher.Tests" />

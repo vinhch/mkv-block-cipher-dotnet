@@ -24,12 +24,14 @@ Public types, all in `src/MkvBlockCipher/`:
 | `docs/benchmarks.md` | before a performance change: how to run and read the numbers | benchmark numbers change |
 | `docs/file-systems.md` | before designing file or disk encryption on this library | a mode is added or a cited system changes |
 | `README.md` | for the public API, engines and the script list | the public API, scripts or CI change |
+| `DISCLAIMER.md` | before writing about MKV sources, accuracy or ownership | the non-affiliation, warranty or liability wording changes |
 
 Some facts are copied across files and must change together:
 
 - Benchmark numbers: `docs/benchmarks.md` and the README Benchmarks section. Only `docs/benchmarks.md` notes that the numbers predate the current kernels.
 - AVX-512 engine status (unverified): README Engines and `docs/security.md`.
 - Rev2025 vectors: `docs/algorithm.md`, `Rev2025Vectors.cs`, `samples/MkvBlockCipher.AotSmoke/Program.cs`.
+- Disclaimer wording: `DISCLAIMER.md`, the `LICENSE` "No warranty or liability" section and the README "About this implementation" section.
 
 ## Correctness rules
 
@@ -52,6 +54,10 @@ Some facts are copied across files and must change together:
 - For MKV reference material: describe sources only in general terms: "publicly available reference material" or "publicly announced information".
 - For MKV reference material: never point at a specific existing document: no document number, title, URL or file name, in code, comments, tests, docs or commits. A bare generic abbreviation such as TCVN is fine.
 - For MKV reference material: never commit reference documents.
+- For MKV material, write as this project's interpretation, never as a restatement of a source: "this project interprets", "the implementation uses", "inferred from publicly available reference material". Never "the specification says", "the standard requires" or "as defined in".
+- Never claim official status, conformance, compliance or certification for MKV code, values or revisions.
+- Never attribute MKV content to a named body, agency, committee or person, including the algorithm's designers, beyond the general non-affiliation statement in `DISCLAIMER.md` and the README.
+- Reference material enters the repository only as data an implementation needs (constants, test values), never as copied or closely paraphrased text.
 - Public standards may be named and linked: NIST SPs, RFCs, IEEE 1619. Links go only to primary sources, plus Wikipedia as the one allowed secondary source: NIST CSRC and nvlpubs, RFC Editor, kernel.org, OpenZFS, cryptsetup, Microsoft Learn, Apple Platform Security, VeraCrypt, bcachefs.org, Wikipedia.
 
 ## Layout
