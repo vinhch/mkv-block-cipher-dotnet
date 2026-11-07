@@ -1,6 +1,6 @@
 # MkvBlockCipher
 
-MkvBlockCipher is a .NET library for the MKV block cipher, with 128-bit and 256-bit blocks, CBC (padded, unpadded or ciphertext stealing) and CTR modes, and an authenticated mode (CTR with HMAC-SHA256).
+MkvBlockCipher is a .NET library for the MKV block cipher, with 128-bit and 256-bit blocks, CBC (padded, unpadded or ciphertext stealing) and CTR modes, an authenticated mode (CTR with HMAC-SHA256), and AES key wrap (KW and KWP, 128-bit blocks only).
 
 This is an unofficial implementation and has not been audited. Read [docs/security.md](docs/security.md) before you protect data with it.
 
@@ -81,6 +81,10 @@ Block cipher and modes under one key. Implements `IDisposable`.
 | `byte[] DecryptCbc(ciphertext, iv, paddingMode = PKCS7)`, `int DecryptCbc(ciphertext, iv, destination, paddingMode = PKCS7)`, `bool TryDecryptCbc(ciphertext, iv, destination, out bytesWritten, paddingMode = PKCS7)` | CBC with padding removed. Bad padding throws `CryptographicException`. `PaddingMode.None` returns the ciphertext length and does not check padding |
 | `byte[] EncryptCbcCts(plaintext, iv)`, `void EncryptCbcCts(plaintext, iv, destination)`, `byte[] DecryptCbcCts(ciphertext, iv)`, `void DecryptCbcCts(ciphertext, iv, destination)` | CBC ciphertext stealing (CS3): the output is the input length and no padding is added. Input is at least `BlockSizeBytes`; the destination must match the input length. One-block input is plain CBC. Unauthenticated |
 | `void TransformCtr(initialCounter, source, destination)`, `byte[] TransformCtr(initialCounter, source)` | CTR keystream XOR. Encryption and decryption are the same call |
+| `byte[] EncryptKeyWrap(plaintext)`, `void EncryptKeyWrap(plaintext, destination)` | AES Key Wrap (RFC 3394, SP 800-38F). Input is a multiple of 8 bytes, at least 16. Output is 8 bytes longer. `Mkv128` only: `Mkv256` throws `InvalidOperationException` |
+| `byte[] DecryptKeyWrap(ciphertext)`, `int DecryptKeyWrap(ciphertext, destination)` | Unwraps AES Key Wrap. A failed integrity check zeroes the destination and throws `CryptographicException` |
+| `byte[] EncryptKeyWrapPadded(plaintext)`, `void EncryptKeyWrapPadded(plaintext, destination)`, `int GetKeyWrapPaddedLength(plaintextLength)` (static) | AES Key Wrap with Padding (RFC 5649). Any non-empty input. The output is the input rounded up to 8 bytes, plus 8 bytes. `Mkv128` only |
+| `byte[] DecryptKeyWrapPadded(ciphertext)`, `int DecryptKeyWrapPadded(ciphertext, destination)`, `bool TryDecryptKeyWrapPadded(ciphertext, destination, out bytesWritten)` | Unwraps AES Key Wrap with Padding. The key length comes from the wrapped value. A failed check throws `CryptographicException`. `TryDecrypt` returns `false` when the destination is shorter than `ciphertext.Length - 8` |
 | `void Dispose()` | Zeroes the round keys. Later calls throw `ObjectDisposedException` |
 
 ### MkvCtrHmac
@@ -101,17 +105,17 @@ Authenticated mode: CTR, then HMAC-SHA256 over the associated data, the nonce an
 | Exception | When |
 | --- | --- |
 | `ArgumentException` | A length is wrong, or two buffers partially overlap. `ParamName` names the argument |
-| `CryptographicException` | Bad padding or a bad tag. The message is always "The data could not be decrypted." |
+| `CryptographicException` | Bad padding, a bad tag or a failed key-wrap integrity check. The message is always "The data could not be decrypted." |
 | `ObjectDisposedException` | A method is called after `Dispose` |
 
 ## Advanced usage
 
 - **Allocation.** The span overloads allocate nothing per call. The `byte[]` overloads allocate the result. Create one cipher per key and reuse it.
-- **Output sizes.** Use `BlockSizeBytes` for one block, `GetCiphertextLengthCbc` for CBC, and the input length for CBC ciphertext stealing. The `Try` methods return `false` and write nothing when the destination is too short. The other overloads throw `ArgumentException`.
+- **Output sizes.** Use `BlockSizeBytes` for one block, `GetCiphertextLengthCbc` for CBC, `GetKeyWrapPaddedLength` for KWP, and the input length for CBC ciphertext stealing. The `Try` methods return `false` and write nothing when the destination is too short. The other overloads throw `ArgumentException`.
 - **In-place.** The same start for source and destination is allowed in every mode. Partial overlap throws.
 - **Counters.** `TransformCtr` takes an initial counter of one block. A call whose counter would wrap past all-ones throws before it writes anything.
 - **Associated data.** `MkvCtrHmac` authenticates the associated data without encrypting it. Pass the same bytes to `Decrypt`.
-- **Concurrency.** `MkvCipher` block, CBC and CTR calls may run concurrently on one instance, but `Dispose` must not overlap them. `MkvCtrHmac` is not thread-safe: use one instance per thread.
+- **Concurrency.** `MkvCipher` block, CBC, CTR and key-wrap calls may run concurrently on one instance, but `Dispose` must not overlap them. `MkvCtrHmac` is not thread-safe: use one instance per thread.
 - **Limits.** Message length limits and nonce rules are in [docs/security.md](docs/security.md#limits).
 
 ## Revisions
@@ -131,6 +135,7 @@ Two revisions, `Rev2024` and `Rev2025` (default), share the S-box, the mix matri
 - Use `MkvCtrHmac` for untrusted data. CBC, CBC ciphertext stealing and CTR alone are unauthenticated.
 - CBC IVs must be random, except that CBC ciphertext stealing for file names is deterministic by design. `MkvCtrHmac` nonces must be unique per key.
 - Never reuse a nonce or a CTR counter range under one key.
+- Key wrap protects key data under a key-encryption key. Use a key-encryption key only for key wrap, and see the key wrap rules in [docs/security.md](docs/security.md#mode-rules).
 - `Dispose` zeroes the round keys. Details and limits are in [docs/security.md](docs/security.md).
 
 ## Benchmarks

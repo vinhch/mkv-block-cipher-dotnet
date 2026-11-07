@@ -1,12 +1,12 @@
 # Agent guide
 
-MkvBlockCipher is a .NET library (`net10.0`) for the MKV block cipher: `Mkv128` and `Mkv256` blocks, with block, CBC (including ciphertext stealing), CTR and CTR-then-HMAC modes. Correctness is the bar: a change is right when every engine still produces the reference outputs, and the default engine stays constant-time. The repository is licensed for viewing only (`LICENSE`): never describe it as open source.
+MkvBlockCipher is a .NET library (`net10.0`) for the MKV block cipher: `Mkv128` and `Mkv256` blocks, with block, CBC (including ciphertext stealing), CTR and CTR-then-HMAC modes, and AES key wrap (KW and KWP, `Mkv128` only). Correctness is the bar: a change is right when every engine still produces the reference outputs, and the default engine stays constant-time. The repository is licensed for viewing only (`LICENSE`): never describe it as open source.
 
 Public types, all in `src/MkvBlockCipher/`:
 
 | Type | Role |
 | --- | --- |
-| `MkvCipher` | Block, CBC (PKCS#7, unpadded or ciphertext stealing) and CTR operations for one key |
+| `MkvCipher` | Block, CBC (PKCS#7, unpadded or ciphertext stealing), CTR and key wrap (KW, KWP) operations for one key |
 | `MkvCtrHmac` | CTR then HMAC-SHA256 with associated data, 32-byte key and tag |
 | `MkvBlockSize` | `Mkv128` (16-byte block) or `Mkv256` (32-byte block) |
 | `MkvRevision` | `Rev2024` (earlier draft) or `Rev2025` (default) |
@@ -53,7 +53,7 @@ Some facts are copied across files and must change together:
 
 ## Layout
 
-- `src/MkvBlockCipher/`: public types at the root; `Kernels/` holds the engines (`ScalarEngine`, `TableEngine`, `X64/` with SSSE3, GFNI and AVX-512 paths, `Arm64/` with AdvSimd); `Modes/` holds CBC, CTR, padding and CTR-HMAC key derivation; `Primitives/` holds tables, parameters and the key schedule.
+- `src/MkvBlockCipher/`: public types at the root; `Kernels/` holds the engines (`ScalarEngine`, `TableEngine`, `X64/` with SSSE3, GFNI and AVX-512 paths, `Arm64/` with AdvSimd); `Modes/` holds CBC, CTR, key wrap, padding and CTR-HMAC key derivation; `Primitives/` holds tables, parameters and the key schedule.
 - `tests/MkvBlockCipher.Tests/`: xUnit v3 on Microsoft.Testing.Platform, mirroring the source folders; reference values in `TestData/`.
 - `benchmarks/MkvBlockCipher.Benchmarks/`: BenchmarkDotNet, Release only.
 - `samples/MkvBlockCipher.AotSmoke/`: native AOT publish check.
