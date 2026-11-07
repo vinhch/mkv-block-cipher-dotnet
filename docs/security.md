@@ -35,6 +35,7 @@ Vector registers are not cleared after use, zmm registers included, as with the 
 
 - `EncryptBlock` and `DecryptBlock` process one block with no chaining. For messages, use a mode. Equal plaintext blocks give equal ciphertext blocks under the single-block call.
 - CBC (`EncryptCbc`, `DecryptCbc`) is unauthenticated. A changed ciphertext bit garbles its block and flips one bit in the next block. A padding failure raises one generic `CryptographicException`, but success and failure remain observable. If an attacker can see that outcome for ciphertexts they choose, CBC is open to padding-oracle attacks.
+- CBC with `PaddingMode.None` takes whole blocks and adds no padding. Under one IV, the same plaintext prefix gives the same ciphertext prefix, and nothing detects a change. Use it only where the IV is unique per sector or message and the length is fixed by the caller.
 - CTR (`TransformCtr`) is unauthenticated. Encrypting and decrypting are the same call. A reused initial counter under one key reveals the XOR of the two plaintexts.
 - `MkvCtrHmac` is encrypt-then-MAC: CTR with the block cipher, then HMAC-SHA256 over the associated data, the nonce, the ciphertext, and both lengths as 64-bit values. Use it for data that crosses a trust boundary. Decrypt verifies the tag before it decrypts anything. A tag mismatch zeroes the destination and throws one generic `CryptographicException`.
 

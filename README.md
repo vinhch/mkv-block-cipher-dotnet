@@ -76,9 +76,9 @@ Block cipher and modes under one key. Implements `IDisposable`.
 | `MkvCipher(MkvBlockSize, ReadOnlySpan<byte> key, MkvRevision = Rev2025, MkvEngine = ConstantTime)` | Runs the key schedule once. The key is not kept |
 | `int BlockSizeBytes` | 16 or 32 |
 | `void EncryptBlock(source, destination)`, `void DecryptBlock(source, destination)` | One block, no mode |
-| `int GetCiphertextLengthCbc(int plaintextLength)` | CBC output size. PKCS#7 always adds between 1 and `BlockSizeBytes` bytes |
-| `byte[] EncryptCbc(plaintext, iv)`, `int EncryptCbc(plaintext, iv, destination)`, `bool TryEncryptCbc(plaintext, iv, destination, out bytesWritten)` | CBC with PKCS#7 padding |
-| `byte[] DecryptCbc(ciphertext, iv)`, `int DecryptCbc(ciphertext, iv, destination)`, `bool TryDecryptCbc(ciphertext, iv, destination, out bytesWritten)` | CBC with padding removed. Bad padding throws `CryptographicException` |
+| `int GetCiphertextLengthCbc(int plaintextLength, PaddingMode paddingMode = PKCS7)` | CBC output size. PKCS#7 always adds between 1 and `BlockSizeBytes` bytes. `PaddingMode.None` returns the input length and rejects a partial block |
+| `byte[] EncryptCbc(plaintext, iv, paddingMode = PKCS7)`, `int EncryptCbc(plaintext, iv, destination, paddingMode = PKCS7)`, `bool TryEncryptCbc(plaintext, iv, destination, out bytesWritten, paddingMode = PKCS7)` | CBC with PKCS#7 padding, or with `PaddingMode.None` for whole blocks only. Other modes throw `ArgumentOutOfRangeException` |
+| `byte[] DecryptCbc(ciphertext, iv, paddingMode = PKCS7)`, `int DecryptCbc(ciphertext, iv, destination, paddingMode = PKCS7)`, `bool TryDecryptCbc(ciphertext, iv, destination, out bytesWritten, paddingMode = PKCS7)` | CBC with padding removed. Bad padding throws `CryptographicException`. `PaddingMode.None` returns the ciphertext length and does not check padding |
 | `void TransformCtr(initialCounter, source, destination)`, `byte[] TransformCtr(initialCounter, source)` | CTR keystream XOR. Encryption and decryption are the same call |
 | `void Dispose()` | Zeroes the round keys. Later calls throw `ObjectDisposedException` |
 

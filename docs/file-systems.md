@@ -41,5 +41,6 @@ XTS over MKV-128, with the sector number as the tweak. The XTS data-unit limit a
 | Role | Library API |
 | --- | --- |
 | CBC | `MkvCipher.EncryptCbc`, `MkvCipher.DecryptCbc` |
+| CBC without padding (ESSIV-style sector data) | `MkvCipher.EncryptCbc`, `MkvCipher.DecryptCbc` with `PaddingMode.None` |
 | CTR | `MkvCipher.TransformCtr` |
 | CTR then HMAC-SHA256 with associated data | `MkvCtrHmac.Encrypt`, `MkvCtrHmac.Decrypt` |

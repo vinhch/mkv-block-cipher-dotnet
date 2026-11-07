@@ -6,7 +6,7 @@ Public types, all in `src/MkvBlockCipher/`:
 
 | Type | Role |
 | --- | --- |
-| `MkvCipher` | Block, CBC and CTR operations for one key |
+| `MkvCipher` | Block, CBC (PKCS#7 or unpadded) and CTR operations for one key |
 | `MkvCtrHmac` | CTR then HMAC-SHA256 with associated data, 32-byte key and tag |
 | `MkvBlockSize` | `Mkv128` (16-byte block) or `Mkv256` (32-byte block) |
 | `MkvRevision` | `Rev2024` (earlier draft) or `Rev2025` (default) |
