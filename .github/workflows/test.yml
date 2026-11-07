@@ -26,7 +26,7 @@ jobs:
           - { os: ubuntu-latest, leg: no-gfni, dotnet-env: DOTNET_EnableGFNI=0 }
           - { os: ubuntu-latest, leg: no-avx2, dotnet-env: DOTNET_EnableAVX2=0 }
           - { os: ubuntu-latest, leg: no-avx2-no-gfni, dotnet-env: "DOTNET_EnableAVX2=0\nDOTNET_EnableGFNI=0" }
-          - { os: macos-14, leg: arm64, dotnet-env: "" }
+          - { os: macos-latest, leg: arm64, dotnet-env: "" }
     name: test (${{ matrix.leg }})
     runs-on: ${{ matrix.os }}
     steps:
