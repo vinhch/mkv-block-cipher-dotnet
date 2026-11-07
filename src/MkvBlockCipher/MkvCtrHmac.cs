@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using MkvBlockCipher.Modes;
 
@@ -10,8 +11,8 @@ namespace MkvBlockCipher;
 /// the tag before it decrypts anything.
 /// </summary>
 /// <remarks>
-/// Not thread-safe: the instance holds one reusable <see cref="IncrementalHash"/>. Callers must not overlap calls,
-/// and Dispose must not overlap them either.
+/// Encrypt and Decrypt may run concurrently after construction. Each call rents an <see cref="IncrementalHash"/> from
+/// a pool, so the pool grows to the peak concurrency and then stays. Dispose must not overlap calls.
 /// </remarks>
 public sealed class MkvCtrHmac : IDisposable
 {
@@ -25,7 +26,8 @@ public sealed class MkvCtrHmac : IDisposable
 
     private readonly int _blockBytes;
     private readonly MkvCipher _cipher;
-    private readonly IncrementalHash _mac;
+    private readonly byte[] _macKey;
+    private readonly ConcurrentBag<IncrementalHash> _macPool = new();
     private bool _disposed;
 
     /// <summary>Derives the cipher and MAC keys from <paramref name="key"/>.</summary>
@@ -44,28 +46,24 @@ public sealed class MkvCtrHmac : IDisposable
         RequireLength(key, CtrHmacKeys.KeyBytes, nameof(key));
         _blockBytes = CtrHmacKeys.BlockBytes(blockSize);
 
-        // The derived keys are secret, so they are zeroed on every path. The cipher and the MAC state keep their own copies.
+        // The MAC key stays in a pinned array for the instance's life: the pool builds its hashes from it.
+        // The cipher keeps its own copy of the cipher key, so the derived copy is zeroed on every path.
+        _macKey = GC.AllocateArray<byte>(CtrHmacKeys.MacKeyBytes, pinned: true);
         byte[] encKey = new byte[CtrHmacKeys.EncKeyBytes(_blockBytes)];
-        byte[] macKey = new byte[CtrHmacKeys.MacKeyBytes];
         try
         {
             CtrHmacKeys.Derive(key, "enc", _blockBytes, revision, encKey);
-            CtrHmacKeys.Derive(key, "mac", _blockBytes, revision, macKey);
+            CtrHmacKeys.Derive(key, "mac", _blockBytes, revision, _macKey);
             _cipher = new MkvCipher(blockSize, encKey, revision, engine);
-            try
-            {
-                _mac = IncrementalHash.CreateHMAC(HashAlgorithmName.SHA256, macKey);
-            }
-            catch
-            {
-                _cipher.Dispose();
-                throw;
-            }
+        }
+        catch
+        {
+            CryptographicOperations.ZeroMemory(_macKey);
+            throw;
         }
         finally
         {
             CryptographicOperations.ZeroMemory(encKey);
-            CryptographicOperations.ZeroMemory(macKey);
         }
     }
 
@@ -165,8 +163,8 @@ public sealed class MkvCtrHmac : IDisposable
     }
 
     /// <summary>
-    /// Releases the cipher, which zeroes its round keys, and the MAC state. Later calls throw
-    /// <see cref="ObjectDisposedException"/>. A second call does nothing.
+    /// Releases the cipher, which zeroes its round keys, the pooled MAC state and the MAC key. Later calls throw
+    /// <see cref="ObjectDisposedException"/>. A second call does nothing. Must not overlap Encrypt or Decrypt.
     /// </summary>
     public void Dispose()
     {
@@ -177,7 +175,12 @@ public sealed class MkvCtrHmac : IDisposable
 
         _disposed = true;
         _cipher.Dispose();
-        _mac.Dispose();
+        while (_macPool.TryTake(out IncrementalHash? mac))
+        {
+            mac.Dispose();
+        }
+
+        CryptographicOperations.ZeroMemory(_macKey);
     }
 
     // Counter block = nonce || big-endian counter, starting at FirstCounter.
@@ -194,14 +197,34 @@ public sealed class MkvCtrHmac : IDisposable
         ReadOnlySpan<byte> ciphertext,
         Span<byte> tag)
     {
-        _mac.AppendData(associatedData);
-        _mac.AppendData(nonce);
-        _mac.AppendData(ciphertext);
-        Span<byte> lengths = stackalloc byte[2 * sizeof(ulong)];
-        BinaryPrimitives.WriteUInt64LittleEndian(lengths, (ulong)associatedData.Length);
-        BinaryPrimitives.WriteUInt64LittleEndian(lengths[sizeof(ulong)..], (ulong)ciphertext.Length);
-        _mac.AppendData(lengths);
-        _mac.GetHashAndReset(tag);
+        IncrementalHash mac = _macPool.TryTake(out IncrementalHash? pooled)
+            ? pooled
+            : IncrementalHash.CreateHMAC(HashAlgorithmName.SHA256, _macKey);
+        bool completed = false;
+        try
+        {
+            mac.AppendData(associatedData);
+            mac.AppendData(nonce);
+            mac.AppendData(ciphertext);
+            Span<byte> lengths = stackalloc byte[2 * sizeof(ulong)];
+            BinaryPrimitives.WriteUInt64LittleEndian(lengths, (ulong)associatedData.Length);
+            BinaryPrimitives.WriteUInt64LittleEndian(lengths[sizeof(ulong)..], (ulong)ciphertext.Length);
+            mac.AppendData(lengths);
+            mac.GetHashAndReset(tag);
+            completed = true;
+        }
+        finally
+        {
+            // A hash that failed midway still holds partial input, so it is disposed rather than pooled.
+            if (completed)
+            {
+                _macPool.Add(mac);
+            }
+            else
+            {
+                mac.Dispose();
+            }
+        }
     }
 
     // Encrypt writes the ciphertext before it reads the associated data, so any alias would corrupt the tag.

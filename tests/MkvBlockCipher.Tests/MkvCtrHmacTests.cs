@@ -364,6 +364,85 @@ public sealed class MkvCtrHmacTests
     }
 
     [Fact]
+    public void Concurrent_calls_agree()
+    {
+        using MkvCtrHmac mac = Create(MkvBlockSize.Mkv128);
+        byte[] nonce = SeededBytes(mac.NonceSizeBytes, 2);
+        byte[] associatedData = SeededBytes(AssociatedDataLength, 3);
+        byte[][] plaintexts = Enumerable.Range(0, 4).Select(seed => SeededBytes(PlaintextLength, 10 + seed)).ToArray();
+        byte[][] expectedCiphertexts = new byte[plaintexts.Length][];
+        byte[][] expectedTags = new byte[plaintexts.Length][];
+        for (int index = 0; index < plaintexts.Length; index++)
+        {
+            expectedCiphertexts[index] = new byte[PlaintextLength];
+            expectedTags[index] = new byte[MkvCtrHmac.TagSizeBytes];
+            mac.Encrypt(nonce, plaintexts[index], expectedCiphertexts[index], expectedTags[index], associatedData);
+        }
+
+        Parallel.For(0, 10_000, call =>
+        {
+            int index = call % plaintexts.Length;
+            if (call % 2 == 0)
+            {
+                byte[] ciphertext = new byte[PlaintextLength];
+                byte[] tag = new byte[MkvCtrHmac.TagSizeBytes];
+                mac.Encrypt(nonce, plaintexts[index], ciphertext, tag, associatedData);
+                Assert.Equal(expectedCiphertexts[index], ciphertext);
+                Assert.Equal(expectedTags[index], tag);
+            }
+            else
+            {
+                byte[] decrypted = new byte[PlaintextLength];
+                mac.Decrypt(nonce, expectedCiphertexts[index], expectedTags[index], decrypted, associatedData);
+                Assert.Equal(plaintexts[index], decrypted);
+            }
+        });
+    }
+
+    [Fact]
+    public void Warm_call_allocates_nothing()
+    {
+        using MkvCtrHmac mac = Create(MkvBlockSize.Mkv128);
+        byte[] nonce = SeededBytes(mac.NonceSizeBytes, 2);
+        byte[] associatedData = SeededBytes(AssociatedDataLength, 3);
+        byte[] plaintext = SeededBytes(PlaintextLength, 4);
+        byte[] ciphertext = new byte[PlaintextLength];
+        byte[] tag = new byte[MkvCtrHmac.TagSizeBytes];
+        byte[] decrypted = new byte[PlaintextLength];
+        for (int warmUp = 0; warmUp < 2; warmUp++)
+        {
+            mac.Encrypt(nonce, plaintext, ciphertext, tag, associatedData);
+            mac.Decrypt(nonce, ciphertext, tag, decrypted, associatedData);
+        }
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int call = 0; call < 100; call++)
+        {
+            mac.Encrypt(nonce, plaintext, ciphertext, tag, associatedData);
+            mac.Decrypt(nonce, ciphertext, tag, decrypted, associatedData);
+        }
+
+        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+    }
+
+    [Fact]
+    public void Disposed_throws()
+    {
+        MkvCtrHmac mac = Create(MkvBlockSize.Mkv128);
+        byte[] nonce = SeededBytes(mac.NonceSizeBytes, 2);
+        byte[] data = SeededBytes(PlaintextLength, 3);
+        byte[] ciphertext = new byte[PlaintextLength];
+        byte[] tag = new byte[MkvCtrHmac.TagSizeBytes];
+        mac.Encrypt(nonce, data, ciphertext, tag);
+
+        mac.Dispose();
+        mac.Dispose();
+
+        Assert.Throws<ObjectDisposedException>(() => mac.Encrypt(nonce, data, new byte[PlaintextLength], tag));
+        Assert.Throws<ObjectDisposedException>(() => mac.Decrypt(nonce, ciphertext, tag, new byte[PlaintextLength]));
+    }
+
+    [Fact]
     public void Dispose_twice_is_safe()
     {
         MkvCtrHmac mac = Create(MkvBlockSize.Mkv128);

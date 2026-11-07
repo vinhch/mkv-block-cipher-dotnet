@@ -42,7 +42,7 @@ Some facts are copied across files and must change together:
 ## Constant-time and performance rules
 
 - `ConstantTime` engines never branch on or index memory by secret data: keys, round keys or block state. Branches test CPU flags or public values (lengths, block counts, revision, layer direction). `TableEngine` is the only variable-time engine; it backs `MkvEngine.VariableTime` and nothing else.
-- No heap allocation in round loops or span paths: scratch is `stackalloc` per call; tables are `static ReadOnlySpan<byte>` properties over constant data, or `static readonly` fields built once. The `byte[]` overloads allocate their result, and `DecryptCbc` also a scratch buffer of the ciphertext length.
+- No heap allocation in round loops or span paths: scratch is `stackalloc` per call; tables are `static ReadOnlySpan<byte>` properties over constant data, or `static readonly` fields built once. The `byte[]` overloads allocate their result, and `DecryptCbc` also a scratch buffer of the ciphertext length. `MkvCtrHmac` is the one exception to the span-path rule: a call rents a pooled `IncrementalHash`, and the pool allocates only when concurrent calls outgrow it, so a warm single-threaded call allocates nothing.
 - In encryption and decryption, virtual dispatch through `BlockEngine` happens at most once per block or batch, never per round; engine classes are sealed. The key schedule is the exception: it calls `engine.Round` 4R times, once per key.
 - Nothing enforces these rules but review: no analyzer or test checks allocation, dispatch or timing.
 - Measure before and after a performance change (`scripts/bench`); the benchmark project refuses non-optimized builds.

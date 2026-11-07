@@ -29,7 +29,7 @@ Vector registers are not cleared after use, zmm registers included, as with the 
 - The constructor expands the key once into round keys and keeps no copy of the key.
 - Round keys sit in a pinned array, so the GC cannot compact the array and leave an unzeroed copy behind.
 - `Dispose` zeroes the round keys. Every method then throws `ObjectDisposedException`. A second `Dispose` does nothing.
-- `MkvCtrHmac` takes a 32-byte key and derives two keys with HKDF-SHA256 and an empty salt: one for the cipher and one for the MAC. Each info string names its purpose, block size and revision. The derived keys are zeroed after construction. The MAC state keeps its own copy of the MAC key until `Dispose`.
+- `MkvCtrHmac` takes a 32-byte key and derives two keys with HKDF-SHA256 and an empty salt: one for the cipher and one for the MAC. Each info string names its purpose, block size and revision. The cipher key is zeroed after construction. The MAC key sits in a pinned array until `Dispose` zeroes it, and each pooled HMAC state keeps its own copy until `Dispose` releases it.
 - The library does not zero the buffers you pass in, with one exception: the destination of a failed decrypt is zeroed. Zero your own keys, plaintext and temporary buffers when you finish with them.
 
 ## Mode rules
@@ -83,7 +83,7 @@ The unwrap destination must hold at least `ciphertext.Length - 8` bytes. `TryDec
 - `MkvXts` methods are safe to call concurrently after construction. `Dispose` must not overlap them.
 - `MkvGcm` methods are safe to call concurrently after construction. `Dispose` must not overlap them.
 - `MkvCcm` methods are safe to call concurrently after construction. `Dispose` must not overlap them.
-- `MkvCtrHmac` is not thread-safe. Calls must not overlap. Use one instance per thread, or lock around it.
+- `MkvCtrHmac` methods are safe to call concurrently after construction. Each call rents a pooled HMAC state, so the pool grows with concurrency. `Dispose` must not overlap them.
 
 ## Audit status
 

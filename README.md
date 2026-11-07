@@ -146,12 +146,12 @@ CCM (SP 800-38C) with MKV-128 as the block cipher: authenticated encryption with
 
 ## Advanced usage
 
-- **Allocation.** The span overloads allocate nothing per call. The `byte[]` overloads allocate the result. Create one cipher per key and reuse it.
+- **Allocation.** The span overloads allocate nothing per call, except that `MkvCtrHmac` allocates when concurrent calls grow its pool. The `byte[]` overloads allocate the result. Create one cipher per key and reuse it.
 - **Output sizes.** Use `BlockSizeBytes` for one block, `GetCiphertextLengthCbc` for CBC, `GetKeyWrapPaddedLength` for KWP, and the input length for CBC ciphertext stealing. The `Try` methods return `false` and write nothing when the destination is too short. The other overloads throw `ArgumentException`.
 - **In-place.** The same start for source and destination is allowed in every mode. Partial overlap throws.
 - **Counters.** `TransformCtr` takes an initial counter of one block. A call whose counter would wrap past all-ones throws before it writes anything.
 - **Associated data.** `MkvCtrHmac`, `MkvGcm` and `MkvCcm` authenticate the associated data without encrypting it. Pass the same bytes to `Decrypt`.
-- **Concurrency.** `MkvCipher` block, CBC, CTR and key-wrap calls may run concurrently on one instance, but `Dispose` must not overlap them. `MkvCtrHmac` is not thread-safe: use one instance per thread. `MkvXts`, `MkvGcm` and `MkvCcm` calls may run concurrently, and `Dispose` must not overlap them.
+- **Concurrency.** `MkvCipher` block, CBC, CTR and key-wrap calls may run concurrently on one instance, but `Dispose` must not overlap them. `MkvCtrHmac`, `MkvXts`, `MkvGcm` and `MkvCcm` calls may run concurrently, and `Dispose` must not overlap them.
 - **Limits.** Message length limits and nonce rules are in [docs/security.md](docs/security.md#limits).
 
 ## Revisions
