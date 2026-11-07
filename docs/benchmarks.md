@@ -1,8 +1,8 @@
 # Benchmarks
 
-The numbers on this page predate the current kernels, including the GFNI S-box and the AVX-512 engine; the ARM64 kernels and the AVX-512 engine are not measured on real hardware.
+The numbers in the sections before GcmEncrypt predate the current kernels, including the GFNI S-box and the AVX-512 engine; the ARM64 kernels and the AVX-512 engine are not measured on real hardware.
 
-Baseline MB/s of the span APIs for the block cipher, CBC, CTR and CtrHmac, measured on one machine.
+Baseline MB/s of the span APIs for the block cipher, CBC, CTR, CtrHmac, GCM and XTS, measured on one machine.
 
 Machine: Intel Core i7-12700H, 20 logical processors, Windows 11 Pro 10.0.26200, .NET 10.0.14.
 
@@ -14,7 +14,7 @@ All four jobs use BenchmarkDotNet's Default job. Each job is its own process wit
 
 ## Run
 
-Full matrix: `bash scripts/bench.sh --filter "*"`. It has 272 rows: two engines, four jobs. The ConstantTime-only matrix of 136 rows took 60 minutes in the recorded run. The full 272-row matrix took 1 hour 49 minutes on 2026-11-04. Narrow it with a filter: `bash scripts/bench.sh --filter "*CbcEncrypt*"` for one case, `bash scripts/bench.sh --filter "*CbcEncrypt(BlockSize: Mkv128*"` for one case and block size, or `--filter "*VariableTime*"` for the VariableTime rows. `scripts/bench.ps1` takes the same arguments. `--job Short` adds a fifth job next to the four rows; it does not replace them.
+Full matrix: `bash scripts/bench.sh --filter "*"`. It has 336 rows: two engines, four jobs. The ConstantTime-only matrix of 136 rows took 60 minutes in the recorded run. The 272-row matrix from before GcmEncrypt and XtsEncrypt were added took 1 hour 49 minutes on 2026-11-04. Narrow it with a filter: `bash scripts/bench.sh --filter "*CbcEncrypt*"` for one case, `bash scripts/bench.sh --filter "*CbcEncrypt(BlockSize: Mkv128*"` for one case and block size, or `--filter "*VariableTime*"` for the VariableTime rows. `scripts/bench.ps1` takes the same arguments. `--job Short` adds a fifth job next to the four rows; it does not replace them.
 
 ## EncryptBlock
 
@@ -91,9 +91,29 @@ Jobs: all four, see the intro. Associated data is empty.
 | NoHwIntrinsic | Mkv128 | 0.30 | 0.30 | 0.29 | 0.29 |
 | NoHwIntrinsic | Mkv256 | 0.13 | 0.27 | 0.25 | 0.26 |
 
+## GcmEncrypt
+
+Jobs: Default, NoGfni and NoAvx2 from the `--quick` run, which has no NoHwIntrinsic row. MKV-128 only, so there is no Mkv256 row. 16-byte tag, 12-byte nonce, empty associated data, ConstantTime engine. Measured on 2026-11-07 with `bash scripts/bench.sh --quick --filter "*"` on the machine described in the intro, so the host is the same. The quick profile runs 3 iterations, and its Error column is wide: at 1 MiB Default the Error is 145 percent of the mean, so treat that figure as a rough reading and rerun without `--quick` before relying on it.
+
+| Job | Block | 16 B | 1 KiB | 1040 B | 1 MiB |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Default | Mkv128 | 15.92 | 176.56 | 175.76 | 185.09 |
+| NoGfni | Mkv128 | 11.32 | 93.17 | 87.91 | 100.34 |
+| NoAvx2 | Mkv128 | 15.43 | 162.88 | 133.41 | 179.92 |
+
+## XtsEncrypt
+
+Jobs: Default, NoGfni and NoAvx2 from the `--quick` run, which has no NoHwIntrinsic row. MKV-128 only, so there is no Mkv256 row. One data unit per call with data unit number 0, 32-byte key, ConstantTime engine. Every size is a multiple of 16, so no call takes the ciphertext stealing path. Same run and host as GcmEncrypt above, with the same wide quick-profile Error.
+
+| Job | Block | 16 B | 1 KiB | 1040 B | 1 MiB |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Default | Mkv128 | 20.01 | 242.64 | 218.29 | 273.21 |
+| NoGfni | Mkv128 | 14.80 | 123.12 | 111.72 | 130.41 |
+| NoAvx2 | Mkv128 | 19.60 | 223.81 | 196.81 | 228.16 |
+
 ## Allocation
 
-In the full run, every span row shows `-` (0 B) except three VariableTime rows at 1 MiB, which show 1 B per call: CtrHmacEncrypt Default Mkv128, CtrEncrypt NoAvx2 Mkv128, and CbcEncrypt NoAvx2 Mkv256.
+In the full run, every span row shows `-` (0 B) except three VariableTime rows at 1 MiB, which show 1 B per call: CtrHmacEncrypt Default Mkv128, CtrEncrypt NoAvx2 Mkv128, and CbcEncrypt NoAvx2 Mkv256. The quick run of GcmEncrypt and XtsEncrypt shows `-` (0 B) on every row; their full-run rows, including VariableTime, are not measured yet.
 
 ## Reading the numbers
 

@@ -184,6 +184,8 @@ Throughput in MB/s (10^6 bytes per second) on a 1 MiB payload, with `ConstantTim
 | CBC decrypt | 93.21 | 100.30 |
 | CTR encrypt | 90.59 | 97.99 |
 | CtrHmac encrypt | 83.03 | 80.13 |
+| GCM encrypt | 185.09 | n/a |
+| XTS encrypt | 273.21 | n/a |
 
 The full tables, the kernel-path rows and the VariableTime gate are in [docs/benchmarks.md](docs/benchmarks.md).
 
