@@ -283,6 +283,13 @@ public sealed class MkvCcmTests
         Assert.Throws<ArgumentException>(() => ccm.Encrypt(nonce, buffer.AsSpan(0, 32), buffer.AsSpan(32, 32), buffer.AsSpan(0, 16), aad));
         Assert.Throws<ArgumentException>(() => ccm.Encrypt(nonce, buffer.AsSpan(0, 32), buffer.AsSpan(32, 32), tag, buffer.AsSpan(40, 13)));
         Assert.Throws<ArgumentException>(() => ccm.Decrypt(nonce, buffer.AsSpan(0, 32), tag, buffer.AsSpan(8, 32)));
+        Assert.Throws<ArgumentException>(() => ccm.Encrypt(nonce, buffer.AsSpan(0, 13), nonce.AsSpan(0, 13), tag));
+        Assert.Throws<ArgumentException>(() => ccm.Encrypt(nonce, buffer.AsSpan(0, 32), buffer.AsSpan(32, 32), buffer.AsSpan(40, 16)));
+        Assert.Throws<ArgumentException>(() => ccm.Encrypt(nonce, buffer.AsSpan(0, 32), buffer.AsSpan(32, 32), nonce.AsSpan(0, 4)));
+        Assert.Throws<ArgumentException>(() => ccm.Encrypt(nonce, buffer.AsSpan(0, 32), buffer.AsSpan(32, 32), aad.AsSpan(0, 4), aad));
+        Assert.Throws<ArgumentException>(() => ccm.Decrypt(nonce, buffer.AsSpan(0, 13), tag, nonce.AsSpan(0, 13)));
+        Assert.Throws<ArgumentException>(() => ccm.Decrypt(nonce, buffer.AsSpan(0, 4), tag, tag.AsSpan(0, 4)));
+        Assert.Throws<ArgumentException>(() => ccm.Decrypt(nonce, buffer.AsSpan(0, 13), tag, aad.AsSpan(0, 13), aad));
     }
 
     [Fact]

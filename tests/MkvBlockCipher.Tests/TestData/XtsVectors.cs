@@ -6,6 +6,7 @@ namespace MkvBlockCipher.Tests.TestData;
 // halves), data unit (the tweak bytes as the copy prints them, read little-endian), plaintext and ciphertext.
 // Vectors 1 to 4 and 10 are in two copies with equal values. Some vector numbers appear twice in one copy, so
 // each row is labelled with its key and data-unit lengths as well.
+// The five ciphertext-stealing rows come from one publicly available copy.
 public static class XtsVectors
 {
     public static TheoryData<string, string, string, string> Ieee1619 { get; } = new()
@@ -101,7 +102,7 @@ public static class XtsVectors
                  +
                 "1AD77F16F541DFD269D50D6A5F14FB0AAB1CBB4C1550BE97F7AB4066193C4CAA773DAD38014BD2092FA755C824BB5E54C4F36FFDA9FCEA70B9C6E693E148C151"
         },
-        // IEEE 1619 vector 15: 32-byte key, 32-byte data unit
+        // IEEE 1619 vector 15 (32-byte key, 32-byte data unit)
         {
             "FFFEFDFCFBFAF9F8F7F6F5F4F3F2F1F0BFBEBDBCBBBAB9B8B7B6B5B4B3B2B1B0",
             "9A785634120000000000000000000000",
@@ -283,7 +284,7 @@ public static class XtsVectors
                  +
                 "B3D32466028D0BA36555E7E11AB0EE0666061D1645D962444BC47A38188930A84B4D561395C73C087021927CA638B7AFC8A8679CCB84C26555440EC7F10445CD"
         },
-        // IEEE 1619 vector 15: 32-byte key, 17-byte data unit
+        // IEEE 1619 vector 15 (32-byte key, 17-byte data unit)
         {
             "FFFEFDFCFBFAF9F8F7F6F5F4F3F2F1F0BFBEBDBCBBBAB9B8B7B6B5B4B3B2B1B0",
             "9A785634120000000000000000000000",
@@ -304,7 +305,7 @@ public static class XtsVectors
             "000102030405060708090A0B0C0D0E0F10111213",
             "9D84C813F719AA2C7BE3F66171C7C5C2EDBF9DAC"
         },
-        // IEEE 1619 vector 19: 32-byte key, 512-byte data unit
+        // IEEE 1619 vector 19 (32-byte key, 512-byte data unit)
         {
             "E0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFC0C1C2C3C4C5C6C7C8C9CACBCCCDCECF",
             "21436587A90000000000000000000000",
@@ -346,7 +347,7 @@ public static class XtsVectors
             "000102030405060708090A0B0C0D0E0F1011",
             "D069444B7A7E0CAB09E24447D24DEB1FEDBF"
         },
-        // IEEE 1619 vector 19: 32-byte key, 520-byte data unit
+        // IEEE 1619 vector 19 (32-byte key, 520-byte data unit)
         {
             "E0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFC0C1C2C3C4C5C6C7C8C9CACBCCCDCECF",
             "21436587A90000000000000000000000",

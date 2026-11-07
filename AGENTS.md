@@ -52,7 +52,7 @@ Some facts are copied across files and must change together:
 - For MKV reference material: describe sources only in general terms: "publicly available reference material" or "publicly announced information".
 - For MKV reference material: never point at a specific existing document: no document number, title, URL or file name, in code, comments, tests, docs or commits. A bare generic abbreviation such as TCVN is fine.
 - For MKV reference material: never commit reference documents.
-- Public standards may be named and linked: NIST SPs, RFCs, IEEE 1619. Links go only to primary sources: NIST CSRC and nvlpubs, RFC Editor, kernel.org, OpenZFS, cryptsetup, Microsoft Learn, Apple Platform Security, VeraCrypt, bcachefs.org, Wikipedia.
+- Public standards may be named and linked: NIST SPs, RFCs, IEEE 1619. Links go only to primary sources, plus Wikipedia as the one allowed secondary source: NIST CSRC and nvlpubs, RFC Editor, kernel.org, OpenZFS, cryptsetup, Microsoft Learn, Apple Platform Security, VeraCrypt, bcachefs.org, Wikipedia.
 
 ## Layout
 

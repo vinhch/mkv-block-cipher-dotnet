@@ -4,7 +4,7 @@ Security design, key handling, mode rules and limits for this library. Read it b
 
 ## Constant-time design
 
-`MkvEngine.ConstantTime` is the default. It is designed so that no branch and no memory index depends on secret data: keys, round keys or block state. Each part keeps that rule in its own way.
+`MkvEngine.ConstantTime` is the default. It is designed so that no branch and no memory index depends on secret data: keys, round keys, H, tweaks, block state, tags and unwrapped key bytes. Each part keeps that rule in its own way.
 
 - S-box on x64 without GFNI, with SSSE3, and in the batch kernels when AVX is absent: each table row is a 16-entry byte shuffle. Every row is read for every byte, and a compare keeps the row that the high nibble selects.
 - S-box on ARM64: AdvSimd table lookups over tables held in registers, so no load address depends on the data.

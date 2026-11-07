@@ -182,6 +182,7 @@ internal static class Ghash
         return (value >> 16) | (value << 16);
     }
 
+    // UInt128 and Vector128 locals cannot be zeroed; H-derived values may persist in registers or spill slots.
     private static void MultiplyPclmul(ReadOnlySpan<byte> h, Span<byte> y)
     {
         Vector128<ulong> product = MultiplyReflected(LoadReflected(y), LoadReflected(h));

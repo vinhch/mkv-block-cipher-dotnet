@@ -158,7 +158,6 @@ public sealed class MkvCcm : IDisposable
         }
     }
 
-
     private static bool IsLegalSize(int size, KeySizes sizes) =>
         size >= sizes.MinSize && size <= sizes.MaxSize && (size - sizes.MinSize) % sizes.SkipSize == 0;
 

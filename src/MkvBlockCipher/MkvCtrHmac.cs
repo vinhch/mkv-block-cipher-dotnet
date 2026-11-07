@@ -175,6 +175,7 @@ public sealed class MkvCtrHmac : IDisposable
 
         _disposed = true;
         _cipher.Dispose();
+        // Pool disposal and key zeroing are not observable through the public API.
         while (_macPool.TryTake(out IncrementalHash? mac))
         {
             mac.Dispose();
