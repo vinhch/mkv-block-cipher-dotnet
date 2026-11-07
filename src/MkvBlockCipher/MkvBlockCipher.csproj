@@ -2,7 +2,7 @@
   <PropertyGroup>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageId>MkvBlockCipher</PackageId>
-    <Description>Unofficial, unaudited .NET implementation of the MKV block cipher: single-block, CBC (PKCS#7, unpadded or ciphertext stealing), CTR, authenticated CTR with HMAC-SHA256, AES key wrap (KW, KWP), and XTS sector encryption (IEEE 1619), on 128-bit blocks.</Description>
+    <Description>Unofficial, unaudited .NET implementation of the MKV block cipher: single-block, CBC (PKCS#7, unpadded or ciphertext stealing), CTR, authenticated CTR with HMAC-SHA256, GCM (SP 800-38D), AES key wrap (KW, KWP), and XTS sector encryption (IEEE 1619), on 128-bit blocks.</Description>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryType>git</RepositoryType>

@@ -1,6 +1,6 @@
 # MkvBlockCipher
 
-MkvBlockCipher is a .NET library for the MKV block cipher, with 128-bit and 256-bit blocks, CBC (padded, unpadded or ciphertext stealing) and CTR modes, an authenticated mode (CTR with HMAC-SHA256), AES key wrap (KW and KWP, 128-bit blocks only), and XTS (IEEE 1619 sector encryption, 128-bit blocks only).
+MkvBlockCipher is a .NET library for the MKV block cipher, with 128-bit and 256-bit blocks, CBC (padded, unpadded or ciphertext stealing) and CTR modes, an authenticated mode (CTR with HMAC-SHA256), GCM (SP 800-38D authenticated encryption, 128-bit blocks only), AES key wrap (KW and KWP, 128-bit blocks only), and XTS (IEEE 1619 sector encryption, 128-bit blocks only).
 
 This is an unofficial implementation and has not been audited. Read [docs/security.md](docs/security.md) before you protect data with it.
 
@@ -111,6 +111,19 @@ IEEE 1619 XTS for sector-layer encryption: one data unit per call, length-preser
 | `void Decrypt(ulong dataUnitNumber, ciphertext, plaintext)` | As `Encrypt`. Does not authenticate: a changed ciphertext decrypts without an error |
 | `void Dispose()` | Zeroes both round-key sets. Later calls throw `ObjectDisposedException` |
 
+### MkvGcm
+
+GCM (SP 800-38D) with MKV-128 as the block cipher: authenticated encryption with a 12-byte nonce. Implements `IDisposable`.
+
+| Member | Notes |
+| --- | --- |
+| `MkvGcm(ReadOnlySpan<byte> key, int tagSizeInBytes, MkvRevision = Rev2025, MkvEngine = ConstantTime)` | The key is 16, 24 or 32 bytes. The tag is 12 to 16 bytes. `Mkv128` only |
+| `static KeySizes NonceByteSizes`, `static KeySizes TagByteSizes` | Nonce: exactly 12 bytes. Tag: 12 to 16 bytes |
+| `int TagSizeInBytes` | Fixed at construction |
+| `void Encrypt(nonce, plaintext, ciphertext, tag, associatedData = default)` | `ciphertext` has the length of `plaintext`. May be in place |
+| `void Decrypt(nonce, ciphertext, tag, plaintext, associatedData = default)` | Verifies the tag before decrypting. On failure zeroes `plaintext` and throws |
+| `void Dispose()` | As for `MkvCipher` |
+
 ### Errors
 
 | Exception | When |
@@ -125,8 +138,8 @@ IEEE 1619 XTS for sector-layer encryption: one data unit per call, length-preser
 - **Output sizes.** Use `BlockSizeBytes` for one block, `GetCiphertextLengthCbc` for CBC, `GetKeyWrapPaddedLength` for KWP, and the input length for CBC ciphertext stealing. The `Try` methods return `false` and write nothing when the destination is too short. The other overloads throw `ArgumentException`.
 - **In-place.** The same start for source and destination is allowed in every mode. Partial overlap throws.
 - **Counters.** `TransformCtr` takes an initial counter of one block. A call whose counter would wrap past all-ones throws before it writes anything.
-- **Associated data.** `MkvCtrHmac` authenticates the associated data without encrypting it. Pass the same bytes to `Decrypt`.
-- **Concurrency.** `MkvCipher` block, CBC, CTR and key-wrap calls may run concurrently on one instance, but `Dispose` must not overlap them. `MkvCtrHmac` is not thread-safe: use one instance per thread. `MkvXts` calls may run concurrently, and `Dispose` must not overlap them.
+- **Associated data.** `MkvCtrHmac` and `MkvGcm` authenticate the associated data without encrypting it. Pass the same bytes to `Decrypt`.
+- **Concurrency.** `MkvCipher` block, CBC, CTR and key-wrap calls may run concurrently on one instance, but `Dispose` must not overlap them. `MkvCtrHmac` is not thread-safe: use one instance per thread. `MkvXts` and `MkvGcm` calls may run concurrently, and `Dispose` must not overlap them.
 - **Limits.** Message length limits and nonce rules are in [docs/security.md](docs/security.md#limits).
 
 ## Revisions
@@ -143,8 +156,8 @@ Two revisions, `Rev2024` and `Rev2025` (default), share the S-box, the mix matri
 ## Security notes
 
 - The library has not been independently audited.
-- Use `MkvCtrHmac` for untrusted data. CBC, CBC ciphertext stealing, CTR and XTS alone are unauthenticated.
-- CBC IVs must be random, except that CBC ciphertext stealing for file names is deterministic by design. `MkvCtrHmac` nonces must be unique per key.
+- Use `MkvCtrHmac` or `MkvGcm` for untrusted data. CBC, CBC ciphertext stealing, CTR and XTS alone are unauthenticated.
+- CBC IVs must be random, except that CBC ciphertext stealing for file names is deterministic by design. `MkvCtrHmac` and `MkvGcm` nonces must be unique per key.
 - Never reuse a nonce, a CTR counter range or an XTS data unit number under one key.
 - Key wrap protects key data under a key-encryption key. Use a key-encryption key only for key wrap, and see the key wrap rules in [docs/security.md](docs/security.md#mode-rules).
 - `Dispose` zeroes the round keys. Details and limits are in [docs/security.md](docs/security.md).

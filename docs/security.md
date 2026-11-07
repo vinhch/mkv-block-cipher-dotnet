@@ -14,7 +14,7 @@ Security design, key handling, mode rules and limits for this library. Read it b
 - AVX-512 engine (`X64Avx512Engine`, 64 blocks per batch in 512-bit vectors): the S-box is a VPERMI2B table lookup when the CPU has AVX-512 VBMI, and the GFNI S-box at 512 bits otherwise. Mix is one 512-bit affine instruction per constant. Neither path branches or indexes memory by data.
 - CBC padding check: every byte of the last block is read, and the result is built from masks.
 - Key wrap unwrap (`DecryptKeyWrapPadded`): every byte of the padded output is read into one mask, and the length and prefix checks run before the one decision. The MLI is compared through a sign mask, not a branch. KW checks the initial value with `FixedTimeEquals`.
-- Tag check in `MkvCtrHmac`: `CryptographicOperations.FixedTimeEquals`.
+- Tag check in `MkvCtrHmac` and `MkvGcm`: `CryptographicOperations.FixedTimeEquals`.
 
 The test suite has no timing test, so this is a design property, not a measured one.
 
@@ -41,6 +41,7 @@ Vector registers are not cleared after use, zmm registers included, as with the 
 - CTR (`TransformCtr`) is unauthenticated. Encrypting and decrypting are the same call. A reused initial counter under one key reveals the XOR of the two plaintexts.
 - XTS (`MkvXts`) is unauthenticated and length-preserving. A changed ciphertext block garbles its own 16-byte block, or the last two blocks when the data unit has a partial tail, and nothing detects it. Use it for sector-layer storage where the format has no room for a tag. Data that crosses a trust boundary needs `MkvCtrHmac`.
 - `MkvCtrHmac` is encrypt-then-MAC: CTR with the block cipher, then HMAC-SHA256 over the associated data, the nonce, the ciphertext, and both lengths as 64-bit values. Use it for data that crosses a trust boundary. Decrypt verifies the tag before it decrypts anything. A tag mismatch zeroes the destination and throws one generic `CryptographicException`.
+- `MkvGcm` is GCM ([SP 800-38D](https://csrc.nist.gov/pubs/sp/800/38/d/final)) with MKV-128 as the block cipher: authenticated, with a 12-byte nonce and a tag of 12 to 16 bytes. Decrypt verifies the tag before it decrypts anything, and a tag mismatch zeroes the destination and throws one generic `CryptographicException`. A truncated tag weakens forgery resistance. SP 800-38D allows truncation only for restricted uses, so keep the 16-byte tag unless the format requires less.
 - Key wrap (`EncryptKeyWrap`, `EncryptKeyWrapPadded` and their decrypt methods) wraps key data under a key-encryption key, for example per-file keys stored in metadata. It is deterministic: the same key-encryption key and key data give the same output. It needs a 128-bit block, so `Mkv256` throws `InvalidOperationException`.
 - Key wrap detects a changed wrapped key on unwrap: KW checks a 64-bit initial value, and KWP checks a 32-bit prefix, a length field and zero padding. A failed check zeroes the destination and throws one generic `CryptographicException`.
 - Key wrap has no associated data: it does not bind a wrapped key to a file, dataset or other context. Keep that binding in the metadata.
@@ -53,6 +54,7 @@ Vector registers are not cleared after use, zmm registers included, as with the 
 - CTR initial counter: never reuse a counter range under one key. A random initial counter per message is safe only while the total blocks under one key stay far below 2^64 for `Mkv128` and 2^128 for `Mkv256`, the birthday bound on the block size.
 - XTS data unit number: with the key, it selects the tweak. Use each number once per key. Reusing one under one key makes equal plaintext blocks at the same positions encrypt to equal ciphertext blocks, which reveals which blocks changed.
 - `MkvCtrHmac` nonce: `BlockSizeBytes - 4` bytes, which is 12 bytes for `Mkv128` and 28 bytes for `Mkv256`. Never reuse a nonce under one key. With 96-bit random nonces, the chance of a repeat reaches about 2^-33 at 2^32 messages under one key, so keep each key well below that count.
+- `MkvGcm` nonce: exactly 12 bytes. Never reuse a nonce under one key: a repeat reveals the XOR of the two plaintexts and lets an attacker forge tags. With random 96-bit nonces, keep the messages under one key at or below 2^32, the SP 800-38D bound for random IVs.
 
 ## Limits
 
@@ -61,10 +63,12 @@ Vector registers are not cleared after use, zmm registers included, as with the 
 | `MkvCtrHmac` message | 2^32 - 1 blocks: 2^36 - 16 bytes (about 64 GiB) for `Mkv128`, 2^37 - 32 bytes (about 128 GiB) for `Mkv256` | `ArgumentException`, no output |
 | CTR counter | The block count must not carry the counter past all-ones | `ArgumentException`, no output |
 | `MkvCtrHmac` tag | Exactly 32 bytes. Truncation is not supported. | `ArgumentException` |
+| `MkvGcm` message | Any `int` length, far below the SP 800-38D limit of 2^32 - 2 blocks (about 64 GiB) | Not reachable: the length is an `int` |
+| `MkvGcm` tag | 12 to 16 bytes, fixed at construction | `ArgumentOutOfRangeException` at construction; `ArgumentException` for a span of another length |
 | Key wrap length | KW: a multiple of 8 bytes, at least 16 for wrap and at least 24 for unwrap. KWP: at least 1 byte to wrap, at least 16 to unwrap. `Mkv128` only. | `ArgumentException`, or `InvalidOperationException` on `Mkv256` |
 | Key wrap output | An output that does not fit in an `int`: `GetKeyWrapPaddedLength` throws | `ArgumentOutOfRangeException` |
 | XTS data unit | 16 bytes to 2^20 blocks (16 MiB) | `ArgumentException`, no output |
-| Key length | `Mkv128`: 16, 24 or 32 bytes. `Mkv256`: 32, 48 or 64 bytes. `MkvCtrHmac`: 32 bytes. `MkvXts`: 32 or 64 bytes, with two different halves. | `ArgumentException` |
+| Key length | `Mkv128`: 16, 24 or 32 bytes. `Mkv256`: 32, 48 or 64 bytes. `MkvCtrHmac`: 32 bytes. `MkvGcm`: 16, 24 or 32 bytes. `MkvXts`: 32 or 64 bytes, with two different halves. | `ArgumentException` |
 
 The unwrap destination must hold at least `ciphertext.Length - 8` bytes. `TryDecryptKeyWrapPadded` returns `false` for a shorter destination; the other overloads throw `ArgumentException`.
 
@@ -72,6 +76,7 @@ The unwrap destination must hold at least `ciphertext.Length - 8` bytes. `TryDec
 
 - `MkvCipher` block, CBC, CTR and key-wrap methods are safe to call concurrently after construction. `Dispose` must not overlap them.
 - `MkvXts` methods are safe to call concurrently after construction. `Dispose` must not overlap them.
+- `MkvGcm` methods are safe to call concurrently after construction. `Dispose` must not overlap them.
 - `MkvCtrHmac` is not thread-safe. Calls must not overlap. Use one instance per thread, or lock around it.
 
 ## Audit status
