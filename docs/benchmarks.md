@@ -1,6 +1,6 @@
 # Benchmarks
 
-The numbers in the sections before GcmEncrypt predate the current kernels, including the GFNI S-box and the AVX-512 engine; the ARM64 kernels and the AVX-512 engine are not measured on real hardware.
+All numbers except those in the GcmEncrypt and XtsEncrypt sections predate the current kernels, including the GFNI S-box and the AVX-512 engine; the ARM64 kernels and the AVX-512 engine are not measured on real hardware.
 
 Baseline MB/s of the span APIs for the block cipher, CBC, CTR, CtrHmac, GCM and XTS, measured on one machine.
 
