@@ -19,6 +19,7 @@ Public types, all in `src/MkvBlockCipher/`:
 | `docs/algorithm.md` | before touching anything in `Primitives/` or a round kernel: the algorithm, tables and test vectors | the algorithm, a table or a test vector changes |
 | `docs/security.md` | before touching an engine, a mode or key handling: constant-time design, mode rules, limits | an engine or S-box path changes, or its verification status changes |
 | `docs/benchmarks.md` | before a performance change: how to run and read the numbers | benchmark numbers change |
+| `docs/file-systems.md` | before designing file or disk encryption on this library | a mode is added or a cited system changes |
 | `README.md` | for the public API, engines and the script list | the public API, scripts or CI change |
 
 Some facts are copied across files and must change together:
@@ -33,6 +34,7 @@ Some facts are copied across files and must change together:
 - Expected values that come from reference material never change to make a test pass: the Rev2025 ciphertexts, RK[1] prefixes and the one sourced last round key, and all Rev2024 data. Values this project computed (the other Rev2025 last round keys, the CTR-HMAC frozen vector) may change, with the reason in the commit.
 - A new engine goes into both `EngineFactory.Create` and `EngineFactory.AllSupported`. Parity against `ScalarEngine` (`EngineParityTests`) is what covers every engine class. Known-answer tests reach `ScalarEngine`, `TableEngine` and the `ConstantTime` engine that `Create` picks on the host; other SIMD engines rely on parity.
 - Tests skip engines the host cannot run (AVX-512, ARM64), so a green local run proves nothing for them. The AVX-512 engine is unverified: `scripts/test-sde` runs the tests under Intel SDE, and CI does not run it. CI fails the ARM64 leg if its ARM64 tests do not run.
+- Official AES vectors from NIST, IEEE 1619 and RFCs never change to make a test pass. Frozen MKV mode vectors are project-computed and may change with the reason in the commit.
 
 ## Constant-time and performance rules
 
@@ -44,9 +46,10 @@ Some facts are copied across files and must change together:
 
 ## Legal wording
 
-- Describe sources only in general terms: "publicly available reference material" or "publicly announced information".
-- Never point at a specific existing document: no document number, title, URL or file name, in code, comments, tests, docs or commits. A bare generic abbreviation such as TCVN is fine.
-- Never commit reference documents.
+- For MKV reference material: describe sources only in general terms: "publicly available reference material" or "publicly announced information".
+- For MKV reference material: never point at a specific existing document: no document number, title, URL or file name, in code, comments, tests, docs or commits. A bare generic abbreviation such as TCVN is fine.
+- For MKV reference material: never commit reference documents.
+- Public standards may be named and linked: NIST SPs, RFCs, IEEE 1619. Links go only to primary sources: NIST CSRC and nvlpubs, RFC Editor, kernel.org, OpenZFS, cryptsetup, Microsoft Learn, Apple Platform Security, VeraCrypt, bcachefs.org, Wikipedia.
 
 ## Layout
 
