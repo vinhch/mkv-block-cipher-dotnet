@@ -1,6 +1,6 @@
 # MkvBlockCipher
 
-MkvBlockCipher is a .NET library for the MKV block cipher, with 128-bit and 256-bit blocks, CBC and CTR modes, and an authenticated mode (CTR with HMAC-SHA256).
+MkvBlockCipher is a .NET library for the MKV block cipher, with 128-bit and 256-bit blocks, CBC (padded, unpadded or ciphertext stealing) and CTR modes, and an authenticated mode (CTR with HMAC-SHA256).
 
 This is an unofficial implementation and has not been audited. Read [docs/security.md](docs/security.md) before you protect data with it.
 
@@ -79,6 +79,7 @@ Block cipher and modes under one key. Implements `IDisposable`.
 | `int GetCiphertextLengthCbc(int plaintextLength, PaddingMode paddingMode = PKCS7)` | CBC output size. PKCS#7 always adds between 1 and `BlockSizeBytes` bytes. `PaddingMode.None` returns the input length and rejects a partial block |
 | `byte[] EncryptCbc(plaintext, iv, paddingMode = PKCS7)`, `int EncryptCbc(plaintext, iv, destination, paddingMode = PKCS7)`, `bool TryEncryptCbc(plaintext, iv, destination, out bytesWritten, paddingMode = PKCS7)` | CBC with PKCS#7 padding, or with `PaddingMode.None` for whole blocks only. Other modes throw `ArgumentOutOfRangeException` |
 | `byte[] DecryptCbc(ciphertext, iv, paddingMode = PKCS7)`, `int DecryptCbc(ciphertext, iv, destination, paddingMode = PKCS7)`, `bool TryDecryptCbc(ciphertext, iv, destination, out bytesWritten, paddingMode = PKCS7)` | CBC with padding removed. Bad padding throws `CryptographicException`. `PaddingMode.None` returns the ciphertext length and does not check padding |
+| `byte[] EncryptCbcCts(plaintext, iv)`, `void EncryptCbcCts(plaintext, iv, destination)`, `byte[] DecryptCbcCts(ciphertext, iv)`, `void DecryptCbcCts(ciphertext, iv, destination)` | CBC ciphertext stealing (CS3): the output is the input length and no padding is added. Input is at least `BlockSizeBytes`; the destination must match the input length. One-block input is plain CBC. Unauthenticated |
 | `void TransformCtr(initialCounter, source, destination)`, `byte[] TransformCtr(initialCounter, source)` | CTR keystream XOR. Encryption and decryption are the same call |
 | `void Dispose()` | Zeroes the round keys. Later calls throw `ObjectDisposedException` |
 
@@ -106,7 +107,7 @@ Authenticated mode: CTR, then HMAC-SHA256 over the associated data, the nonce an
 ## Advanced usage
 
 - **Allocation.** The span overloads allocate nothing per call. The `byte[]` overloads allocate the result. Create one cipher per key and reuse it.
-- **Output sizes.** Use `BlockSizeBytes` for one block and `GetCiphertextLengthCbc` for CBC. The `Try` methods return `false` and write nothing when the destination is too short. The other overloads throw `ArgumentException`.
+- **Output sizes.** Use `BlockSizeBytes` for one block, `GetCiphertextLengthCbc` for CBC, and the input length for CBC ciphertext stealing. The `Try` methods return `false` and write nothing when the destination is too short. The other overloads throw `ArgumentException`.
 - **In-place.** The same start for source and destination is allowed in every mode. Partial overlap throws.
 - **Counters.** `TransformCtr` takes an initial counter of one block. A call whose counter would wrap past all-ones throws before it writes anything.
 - **Associated data.** `MkvCtrHmac` authenticates the associated data without encrypting it. Pass the same bytes to `Decrypt`.
@@ -127,8 +128,8 @@ Two revisions, `Rev2024` and `Rev2025` (default), share the S-box, the mix matri
 ## Security notes
 
 - The library has not been independently audited.
-- Use `MkvCtrHmac` for untrusted data. CBC and CTR alone are unauthenticated.
-- CBC IVs must be random. `MkvCtrHmac` nonces must be unique per key.
+- Use `MkvCtrHmac` for untrusted data. CBC, CBC ciphertext stealing and CTR alone are unauthenticated.
+- CBC IVs must be random, except that CBC ciphertext stealing for file names is deterministic by design. `MkvCtrHmac` nonces must be unique per key.
 - Never reuse a nonce or a CTR counter range under one key.
 - `Dispose` zeroes the round keys. Details and limits are in [docs/security.md](docs/security.md).
 

@@ -36,12 +36,13 @@ Vector registers are not cleared after use, zmm registers included, as with the 
 - `EncryptBlock` and `DecryptBlock` process one block with no chaining. For messages, use a mode. Equal plaintext blocks give equal ciphertext blocks under the single-block call.
 - CBC (`EncryptCbc`, `DecryptCbc`) is unauthenticated. A changed ciphertext bit garbles its block and flips one bit in the next block. A padding failure raises one generic `CryptographicException`, but success and failure remain observable. If an attacker can see that outcome for ciphertexts they choose, CBC is open to padding-oracle attacks.
 - CBC with `PaddingMode.None` takes whole blocks and adds no padding. Under one IV, the same plaintext prefix gives the same ciphertext prefix, and nothing detects a change. Use it only where the IV is unique per sector or message and the length is fixed by the caller.
+- CBC ciphertext stealing (`EncryptCbcCts`, `DecryptCbcCts`) is unauthenticated and length-preserving: the output is the input length, with no padding and no tag. A changed ciphertext bit is not detected. Under one IV, equal plaintext blocks give equal ciphertext blocks, except the last two, which are swapped; the length is visible. Use it where the format needs deterministic output of the same length, such as file names. Elsewhere use `EncryptCbc` with a random IV, or `MkvCtrHmac`.
 - CTR (`TransformCtr`) is unauthenticated. Encrypting and decrypting are the same call. A reused initial counter under one key reveals the XOR of the two plaintexts.
 - `MkvCtrHmac` is encrypt-then-MAC: CTR with the block cipher, then HMAC-SHA256 over the associated data, the nonce, the ciphertext, and both lengths as 64-bit values. Use it for data that crosses a trust boundary. Decrypt verifies the tag before it decrypts anything. A tag mismatch zeroes the destination and throws one generic `CryptographicException`.
 
 ## Nonces, IVs and counters
 
-- CBC IV: one block, random for each message, never reused under one key.
+- CBC IV: one block, random for each message, never reused under one key. The exception is CBC ciphertext stealing for file names, which is deterministic by design: its IV is fixed per key and context, as file-name encryption does, and it must not be used for other data.
 - CTR initial counter: never reuse a counter range under one key. A random initial counter per message is safe only while the total blocks under one key stay far below 2^64 for `Mkv128` and 2^128 for `Mkv256`, the birthday bound on the block size.
 - `MkvCtrHmac` nonce: `BlockSizeBytes - 4` bytes, which is 12 bytes for `Mkv128` and 28 bytes for `Mkv256`. Never reuse a nonce under one key. With 96-bit random nonces, the chance of a repeat reaches about 2^-33 at 2^32 messages under one key, so keep each key well below that count.
 
