@@ -95,6 +95,66 @@ public static class MkvGcmStreaming
         DecryptCore(gcm, noncePrefix, source, destination, segmentSizeBytes, associatedData, firstSegmentIndex: 0);
     }
 
+    /// <summary>
+    /// Asynchronous <see cref="Encrypt"/>. The arguments are validated before the call returns, so an invalid argument
+    /// throws from the call itself, not from the returned task.
+    /// </summary>
+    /// <param name="gcm">The key. Must not be disposed until the returned <see cref="ValueTask"/> completes.</param>
+    /// <param name="noncePrefix"><see cref="MkvGcm.StreamNoncePrefixBytes"/> bytes, the same for every segment of the stream.</param>
+    /// <param name="source">The plaintext. Read to its end; not disposed.</param>
+    /// <param name="destination">Receives the ciphertext. Not disposed.</param>
+    /// <param name="segmentSizeBytes">Plaintext bytes per segment, from <see cref="MinSegmentSizeBytes"/> to <see cref="MaxSegmentSizeBytes"/>.</param>
+    /// <param name="associatedData">Bound to every segment and not stored.</param>
+    /// <param name="cancellationToken">Checked before each segment. Segments already written stay written.</param>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> is cancelled.</exception>
+    /// <remarks>
+    /// Other exceptions are those of <see cref="Encrypt"/>. Awaits do not capture the synchronization context. Buffers: two
+    /// pinned arrays per call, zeroed before the task completes.
+    /// </remarks>
+    public static ValueTask EncryptAsync(
+        MkvGcm gcm,
+        ReadOnlyMemory<byte> noncePrefix,
+        Stream source,
+        Stream destination,
+        int segmentSizeBytes = DefaultSegmentSizeBytes,
+        ReadOnlyMemory<byte> associatedData = default,
+        CancellationToken cancellationToken = default)
+    {
+        Validate(gcm, noncePrefix.Span, source, destination, segmentSizeBytes);
+        return EncryptCoreAsync(gcm, noncePrefix, source, destination, segmentSizeBytes, associatedData,
+            firstSegmentIndex: 0, cancellationToken);
+    }
+
+    /// <summary>
+    /// Asynchronous <see cref="Decrypt"/>. The arguments are validated before the call returns, so an invalid argument
+    /// throws from the call itself, not from the returned task.
+    /// </summary>
+    /// <param name="gcm">The key. Must not be disposed until the returned <see cref="ValueTask"/> completes.</param>
+    /// <param name="noncePrefix"><see cref="MkvGcm.StreamNoncePrefixBytes"/> bytes, the prefix used to encrypt.</param>
+    /// <param name="source">The ciphertext. Read to its end; not disposed.</param>
+    /// <param name="destination">Receives the verified plaintext. Not disposed.</param>
+    /// <param name="segmentSizeBytes">The segment size used to encrypt.</param>
+    /// <param name="associatedData">The associated data used to encrypt.</param>
+    /// <param name="cancellationToken">Checked before each segment. Segments already written stay written.</param>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> is cancelled.</exception>
+    /// <remarks>
+    /// Other exceptions are those of <see cref="Decrypt"/>. Awaits do not capture the synchronization context. Buffers: two
+    /// pinned arrays per call, zeroed before the task completes.
+    /// </remarks>
+    public static ValueTask DecryptAsync(
+        MkvGcm gcm,
+        ReadOnlyMemory<byte> noncePrefix,
+        Stream source,
+        Stream destination,
+        int segmentSizeBytes = DefaultSegmentSizeBytes,
+        ReadOnlyMemory<byte> associatedData = default,
+        CancellationToken cancellationToken = default)
+    {
+        Validate(gcm, noncePrefix.Span, source, destination, segmentSizeBytes);
+        return DecryptCoreAsync(gcm, noncePrefix, source, destination, segmentSizeBytes, associatedData,
+            firstSegmentIndex: 0, cancellationToken);
+    }
+
     // The loops take the first segment index as a seam, so the 2^32 limit is reachable without 2^32 segments.
     internal static void EncryptCore(
         MkvGcm gcm,
@@ -192,6 +252,122 @@ public static class MkvGcmStreaming
             CryptographicOperations.ZeroMemory(input);
             CryptographicOperations.ZeroMemory(output);
         }
+    }
+
+    // Same framing as EncryptCore, with awaited stream I/O. The per-segment helpers are shared.
+    internal static async ValueTask EncryptCoreAsync(
+        MkvGcm gcm,
+        ReadOnlyMemory<byte> noncePrefix,
+        Stream source,
+        Stream destination,
+        int segmentSizeBytes,
+        ReadOnlyMemory<byte> associatedData,
+        uint firstSegmentIndex,
+        CancellationToken cancellationToken)
+    {
+        int tagBytes = gcm.TagSizeInBytes;
+        // The extra byte is the lookahead that tells a full non-final segment from the final one.
+        byte[] input = GC.AllocateUninitializedArray<byte>(segmentSizeBytes + tagBytes + 1, pinned: true);
+        byte[] output = GC.AllocateUninitializedArray<byte>(segmentSizeBytes + tagBytes, pinned: true);
+        try
+        {
+            int carried = 0;
+            uint index = firstSegmentIndex;
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                int total = await FillSegmentAsync(source, input, carried, segmentSizeBytes + 1, cancellationToken)
+                    .ConfigureAwait(false);
+                bool isLast = total <= segmentSizeBytes;
+                if (!isLast && index == uint.MaxValue)
+                {
+                    throw new ArgumentException("The input needs more than 2^32 segments.", nameof(source));
+                }
+
+                int plaintextBytes = isLast ? total : segmentSizeBytes;
+                gcm.EncryptSegment(noncePrefix.Span, index, isLast, input.AsSpan(0, plaintextBytes),
+                    output.AsSpan(0, plaintextBytes), output.AsSpan(plaintextBytes, tagBytes), associatedData.Span);
+                await destination.WriteAsync(output.AsMemory(0, plaintextBytes + tagBytes), cancellationToken)
+                    .ConfigureAwait(false);
+
+                if (isLast)
+                {
+                    break;
+                }
+
+                input[0] = input[segmentSizeBytes];
+                carried = 1;
+                index++;
+            }
+
+            await destination.FlushAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(input);
+            CryptographicOperations.ZeroMemory(output);
+        }
+    }
+
+    // Same framing as DecryptCore, with awaited stream I/O. The per-segment helpers are shared.
+    internal static async ValueTask DecryptCoreAsync(
+        MkvGcm gcm,
+        ReadOnlyMemory<byte> noncePrefix,
+        Stream source,
+        Stream destination,
+        int segmentSizeBytes,
+        ReadOnlyMemory<byte> associatedData,
+        uint firstSegmentIndex,
+        CancellationToken cancellationToken)
+    {
+        int tagBytes = gcm.TagSizeInBytes;
+        int wireSegmentBytes = segmentSizeBytes + tagBytes;
+        byte[] input = GC.AllocateUninitializedArray<byte>(wireSegmentBytes + 1, pinned: true);
+        byte[] output = GC.AllocateUninitializedArray<byte>(wireSegmentBytes, pinned: true);
+        try
+        {
+            int carried = 0;
+            uint index = firstSegmentIndex;
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                int total = await FillSegmentAsync(source, input, carried, wireSegmentBytes + 1, cancellationToken)
+                    .ConfigureAwait(false);
+                bool isLast = total <= wireSegmentBytes;
+                int wireBytes = isLast ? total : wireSegmentBytes;
+                ThrowIfBadFraming(isLast, wireBytes, tagBytes, index);
+
+                int plaintextBytes = wireBytes - tagBytes;
+                gcm.DecryptSegment(noncePrefix.Span, index, isLast, input.AsSpan(0, plaintextBytes),
+                    input.AsSpan(plaintextBytes, tagBytes), output.AsSpan(0, plaintextBytes), associatedData.Span);
+                await destination.WriteAsync(output.AsMemory(0, plaintextBytes), cancellationToken).ConfigureAwait(false);
+
+                if (isLast)
+                {
+                    break;
+                }
+
+                input[0] = input[wireSegmentBytes];
+                carried = 1;
+                index++;
+            }
+
+            await destination.FlushAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(input);
+            CryptographicOperations.ZeroMemory(output);
+        }
+    }
+
+    private static async ValueTask<int> FillSegmentAsync(
+        Stream source, byte[] buffer, int carried, int wantedBytes, CancellationToken cancellationToken)
+    {
+        int missing = wantedBytes - carried;
+        int read = await source.ReadAtLeastAsync(buffer.AsMemory(carried, missing), missing, throwOnEndOfStream: false,
+            cancellationToken).ConfigureAwait(false);
+        return carried + read;
     }
 
     // Reads until buffer holds wantedBytes or the source ends. The first `carried` bytes are kept from the last segment.

@@ -8,6 +8,7 @@ public sealed class MkvGcmStreamingTests
     public enum CallPath
     {
         Sync,
+        Async,
     }
 
     private const string FrozenKeyHex = "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F";
@@ -402,6 +403,50 @@ public sealed class MkvGcmStreamingTests
         Assert.Equal(0, destination.WriteCalls);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(17)]
+    [InlineData(MultiSegmentLength)]
+    public void Async_MatchesSync(int plaintextLength)
+    {
+        using MkvGcm gcm = CreateGcm();
+        byte[] plaintext = Pattern(plaintextLength, 28);
+
+        byte[] sync = EncryptAll(CallPath.Sync, gcm, NoncePrefixA, plaintext, SegmentBytes, AssociatedData1);
+        byte[] async = EncryptAll(CallPath.Async, gcm, NoncePrefixA, plaintext, SegmentBytes, AssociatedData1);
+
+        Assert.Equal(sync, async);
+    }
+
+    [Fact]
+    public async Task DecryptAsync_CancelledAfterFirstSegment()
+    {
+        using MkvGcm gcm = CreateGcm();
+        byte[] plaintext = Pattern(MultiSegmentLength, 29);
+        byte[] ciphertext = EncryptAll(CallPath.Sync, gcm, NoncePrefixA, plaintext, SegmentBytes, default);
+        using MemoryStream source = new(ciphertext);
+        using CancellationTokenSource cancellation = new();
+        using RecordingStream destination = new(cancelOnFirstWrite: cancellation);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            MkvGcmStreaming.DecryptAsync(gcm, NoncePrefixA, source, destination, SegmentBytes, default, cancellation.Token).AsTask());
+
+        Assert.Equal(plaintext[..SegmentBytes], destination.Written);
+    }
+
+    [Fact]
+    public void EncryptAsync_ArgumentsValidatedSynchronously()
+    {
+        using MkvGcm gcm = CreateGcm();
+        using MemoryStream source = new(Pattern(32, 30));
+        using RecordingStream destination = new();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => { _ = MkvGcmStreaming.EncryptAsync(gcm, NoncePrefixA, source, destination, SegmentBytes - 1, cancellationToken: TestContext.Current.CancellationToken).AsTask(); });
+
+        Assert.Equal(0L, source.Position);
+        Assert.Equal(0, destination.WriteCalls);
+    }
+
     [Fact]
     public void Arguments_SegmentSizeOutOfRange_Throws()
     {
@@ -527,16 +572,16 @@ public sealed class MkvGcmStreamingTests
     }
 
     private static byte[] EncryptAll(
-        CallPath path, MkvGcm gcm, ReadOnlySpan<byte> noncePrefix, byte[] plaintext, int segmentBytes,
-        ReadOnlySpan<byte> associatedData, uint firstSegmentIndex = 0)
+        CallPath path, MkvGcm gcm, ReadOnlyMemory<byte> noncePrefix, byte[] plaintext, int segmentBytes,
+        ReadOnlyMemory<byte> associatedData, uint firstSegmentIndex = 0)
     {
         using MemoryStream source = new(plaintext);
         return EncryptAll(path, gcm, noncePrefix, source, segmentBytes, associatedData, firstSegmentIndex);
     }
 
     private static byte[] EncryptAll(
-        CallPath path, MkvGcm gcm, ReadOnlySpan<byte> noncePrefix, Stream source, int segmentBytes,
-        ReadOnlySpan<byte> associatedData, uint firstSegmentIndex = 0)
+        CallPath path, MkvGcm gcm, ReadOnlyMemory<byte> noncePrefix, Stream source, int segmentBytes,
+        ReadOnlyMemory<byte> associatedData, uint firstSegmentIndex = 0)
     {
         using MemoryStream destination = new();
         EncryptInto(path, gcm, noncePrefix, source, destination, segmentBytes, associatedData, firstSegmentIndex);
@@ -544,16 +589,16 @@ public sealed class MkvGcmStreamingTests
     }
 
     private static byte[] DecryptAll(
-        CallPath path, MkvGcm gcm, ReadOnlySpan<byte> noncePrefix, byte[] ciphertext, int segmentBytes,
-        ReadOnlySpan<byte> associatedData, uint firstSegmentIndex = 0)
+        CallPath path, MkvGcm gcm, ReadOnlyMemory<byte> noncePrefix, byte[] ciphertext, int segmentBytes,
+        ReadOnlyMemory<byte> associatedData, uint firstSegmentIndex = 0)
     {
         using MemoryStream source = new(ciphertext);
         return DecryptAll(path, gcm, noncePrefix, source, segmentBytes, associatedData, firstSegmentIndex);
     }
 
     private static byte[] DecryptAll(
-        CallPath path, MkvGcm gcm, ReadOnlySpan<byte> noncePrefix, Stream source, int segmentBytes,
-        ReadOnlySpan<byte> associatedData, uint firstSegmentIndex = 0)
+        CallPath path, MkvGcm gcm, ReadOnlyMemory<byte> noncePrefix, Stream source, int segmentBytes,
+        ReadOnlyMemory<byte> associatedData, uint firstSegmentIndex = 0)
     {
         using MemoryStream destination = new();
         DecryptInto(path, gcm, noncePrefix, source, destination, segmentBytes, associatedData, firstSegmentIndex);
@@ -561,13 +606,17 @@ public sealed class MkvGcmStreamingTests
     }
 
     private static void EncryptInto(
-        CallPath path, MkvGcm gcm, ReadOnlySpan<byte> noncePrefix, Stream source, Stream destination, int segmentBytes,
-        ReadOnlySpan<byte> associatedData, uint firstSegmentIndex)
+        CallPath path, MkvGcm gcm, ReadOnlyMemory<byte> noncePrefix, Stream source, Stream destination, int segmentBytes,
+        ReadOnlyMemory<byte> associatedData, uint firstSegmentIndex)
     {
         switch (path)
         {
             case CallPath.Sync:
-                MkvGcmStreaming.EncryptCore(gcm, noncePrefix, source, destination, segmentBytes, associatedData, firstSegmentIndex);
+                MkvGcmStreaming.EncryptCore(gcm, noncePrefix.Span, source, destination, segmentBytes, associatedData.Span, firstSegmentIndex);
+                break;
+            case CallPath.Async:
+                MkvGcmStreaming.EncryptCoreAsync(gcm, noncePrefix, source, destination, segmentBytes, associatedData, firstSegmentIndex, CancellationToken.None)
+                    .AsTask().GetAwaiter().GetResult();
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(path), path, null);
@@ -575,13 +624,17 @@ public sealed class MkvGcmStreamingTests
     }
 
     private static void DecryptInto(
-        CallPath path, MkvGcm gcm, ReadOnlySpan<byte> noncePrefix, Stream source, Stream destination, int segmentBytes,
-        ReadOnlySpan<byte> associatedData, uint firstSegmentIndex)
+        CallPath path, MkvGcm gcm, ReadOnlyMemory<byte> noncePrefix, Stream source, Stream destination, int segmentBytes,
+        ReadOnlyMemory<byte> associatedData, uint firstSegmentIndex)
     {
         switch (path)
         {
             case CallPath.Sync:
-                MkvGcmStreaming.DecryptCore(gcm, noncePrefix, source, destination, segmentBytes, associatedData, firstSegmentIndex);
+                MkvGcmStreaming.DecryptCore(gcm, noncePrefix.Span, source, destination, segmentBytes, associatedData.Span, firstSegmentIndex);
+                break;
+            case CallPath.Async:
+                MkvGcmStreaming.DecryptCoreAsync(gcm, noncePrefix, source, destination, segmentBytes, associatedData, firstSegmentIndex, CancellationToken.None)
+                    .AsTask().GetAwaiter().GetResult();
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(path), path, null);

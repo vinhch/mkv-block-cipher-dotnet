@@ -44,17 +44,26 @@ internal sealed class TrickleStream : Stream
 
     public override int Read(byte[] buffer, int offset, int count) => Read(buffer.AsSpan(offset, count));
 
+    public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
+        ValueTask.FromResult(Read(buffer.Span));
+
     public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
 }
 
 // Keeps the bytes of every Write that succeeds. WriteCalls counts every attempt. The write numbered failOnWrite
-// (1-based) throws IOException and records nothing; 0 never throws.
+// (1-based) throws IOException and records nothing; 0 never throws. cancelOnFirstWrite is cancelled after the first
+// successful write.
 internal sealed class RecordingStream : Stream
 {
     private readonly int _failOnWrite;
+    private readonly CancellationTokenSource? _cancelOnFirstWrite;
     private readonly List<byte> _written = [];
 
-    public RecordingStream(int failOnWrite = 0) => _failOnWrite = failOnWrite;
+    public RecordingStream(int failOnWrite = 0, CancellationTokenSource? cancelOnFirstWrite = null)
+    {
+        _failOnWrite = failOnWrite;
+        _cancelOnFirstWrite = cancelOnFirstWrite;
+    }
 
     public int WriteCalls { get; private set; }
 
@@ -80,6 +89,12 @@ internal sealed class RecordingStream : Stream
 
     public override void Flush() => Flushes++;
 
+    public override Task FlushAsync(CancellationToken cancellationToken)
+    {
+        Flush();
+        return Task.CompletedTask;
+    }
+
     public override int Read(Span<byte> buffer) => throw new NotSupportedException();
 
     public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
@@ -97,6 +112,16 @@ internal sealed class RecordingStream : Stream
         }
 
         _written.AddRange(buffer.ToArray());
+        if (WriteCalls == 1)
+        {
+            _cancelOnFirstWrite?.Cancel();
+        }
+    }
+
+    public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+    {
+        Write(buffer.Span);
+        return ValueTask.CompletedTask;
     }
 
     public override void Write(byte[] buffer, int offset, int count) => Write(buffer.AsSpan(offset, count));
