@@ -5,13 +5,13 @@ using Xunit;
 
 namespace MkvBlockCipher.Tests.Kernels;
 
-// Each test checks the expectation that scripts/test-sde.* sets in an MKV_EXPECT_* variable, and skips when it is unset.
+// Each test checks the expectation that scripts/test-sde.* or the CI AVX-512 probe sets in an MKV_EXPECT_* variable, and skips when it is unset.
 public sealed class Avx512GuardTests
 {
     private const string EngineVariable = "MKV_EXPECT_ENGINE";
     private const string VbmiVariable = "MKV_EXPECT_VBMI";
     private const string Avx512Engine = "X64Avx512Engine";
-    private const string SkipReason = "Runs only under scripts/test-sde.*, which sets MKV_EXPECT_* variables.";
+    private const string SkipReason = "Runs only where scripts/test-sde.* or the CI AVX-512 probe sets MKV_EXPECT_* variables.";
 
     public static bool ExpectEngineSet => ExpectedEngine is not null;
 
