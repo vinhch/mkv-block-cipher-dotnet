@@ -162,7 +162,7 @@ Two revisions, `Rev2024` and `Rev2025` (default), share the S-box, the mix matri
 ## Engines
 
 - `MkvEngine.ConstantTime` (default) is designed so that no branch or memory index depends on secret data. It uses an AVX-512 engine with 64 blocks per batch where the CPU and .NET allow 512-bit vectors, x64 SSSE3 kernels (with AVX2 and GFNI where the CPU has them), ARM64 AdvSimd kernels, or a scalar fallback.
-- The AVX-512 engine runs in CI whenever the runner exposes AVX-512. AVX-512 is not selectable on GitHub-hosted runners, so that coverage is opportunistic: the `default` Ubuntu leg probes the CPU, runs the AVX-512 guard tests when it finds AVX-512, and records the CPU model in its job summary. The engine has not been run under Intel SDE and is not measured. `DOTNET_PreferredVectorBitWidth=256` turns it off.
+- The AVX-512 engine runs in CI whenever the runner supports it, meaning AVX-512F, AVX-512BW and GFNI. AVX-512 is not selectable on GitHub-hosted runners, so that coverage is opportunistic: the `default` Ubuntu leg probes the CPU, runs the AVX-512 guard tests when the engine is eligible, and records the CPU model and the verdict in its job summary. The engine has not been run under Intel SDE and is not measured. `DOTNET_PreferredVectorBitWidth=256` turns it off.
 - `MkvEngine.VariableTime` is faster and variable time by design. Use it only for offline or batch work on a host with no untrusted co-resident code. Do not use it on multi-tenant servers, on cloud VMs, or anywhere an attacker can measure timing.
 - On x64 Windows with a CPU that has GFNI, a default Native AOT publish ran `X64Engine` with AVX2 off and GFNI on (`scripts/aot-smoke.ps1`). A publish limited to `x86-64-v2` reported the same flags, so GFNI does not come from the baseline ISA. A CPU without GFNI has not been tested. `-p:IlcInstructionSet=native` turns AVX2 on.
 
@@ -213,7 +213,7 @@ benchmarks/                   BenchmarkDotNet project
 docs/                         algorithm, security and benchmark notes
 ```
 
-CI runs in `.github/workflows`. Build runs on Ubuntu, Windows and macOS. Test runs on Ubuntu with the default kernels and with the scalar, GFNI-off, AVX2-off and AVX2-and-GFNI-off paths, plus an ARM64 macOS leg that fails if its ARM64 tests do not run. The `default` Ubuntu leg also probes its runner for AVX-512 and records the result in the job summary; the AVX-512 tests run only when it finds it. Coverage, lint and the native AOT smoke publish run as their own jobs. All of these run on pushes and pull requests to `main`. Pushing a tag `vX.Y.Z`, optionally with a `-suffix`, packs the library and creates a GitHub Release without the `.nupkg` attached. No package is published anywhere.
+CI runs in `.github/workflows`. Build runs on Ubuntu, Windows and macOS. Test runs on Ubuntu with the default kernels and with the scalar, GFNI-off, AVX2-off and AVX2-and-GFNI-off paths, plus an ARM64 macOS leg that fails if its ARM64 tests do not run. The `default` Ubuntu leg also probes its runner for AVX-512F, AVX-512BW and GFNI and records the result in the job summary; the AVX-512 guard tests run only when the engine is eligible. Coverage, lint and the native AOT smoke publish run as their own jobs. All of these run on pushes and pull requests to `main`. Pushing a tag `vX.Y.Z`, optionally with a `-suffix`, packs the library and creates a GitHub Release without the `.nupkg` attached. No package is published anywhere.
 
 ## About this implementation
 

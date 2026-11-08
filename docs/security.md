@@ -21,7 +21,7 @@ Security design, key handling, mode rules and limits for this library. Read it b
 
 The test suite has no timing test, so this is a design property, not a measured one.
 
-The AVX-512 engine needs `Vector512.IsHardwareAccelerated`, AVX-512BW and GFNI at 512 bits. The first follows .NET's default: where .NET does not use 512-bit vectors by default, the 256-bit engines run. `DOTNET_PreferredVectorBitWidth=256` is the opt-out. The engine runs in CI when the runner exposes AVX-512: the `default` Ubuntu leg probes `/proc/cpuinfo` for AVX-512F, AVX-512BW and GFNI, and the guard tests assert that the factory selected the engine. AVX-512 is not selectable on GitHub-hosted runners, so the coverage is opportunistic, and the job summary records which CPU a run landed on. No Intel SDE run has been done for the engine, and it is not measured on real hardware.
+The AVX-512 engine needs `Vector512.IsHardwareAccelerated`, AVX-512BW and GFNI at 512 bits. The first follows .NET's default: where .NET does not use 512-bit vectors by default, the 256-bit engines run. `DOTNET_PreferredVectorBitWidth=256` is the opt-out. The engine runs in CI when the runner supports it: the `default` Ubuntu leg probes `/proc/cpuinfo` for AVX-512F, AVX-512BW and GFNI, and the guard tests assert that the factory selected the engine. AVX-512 is not selectable on GitHub-hosted runners, so the coverage is opportunistic, and the job summary records which CPU a run landed on and whether the engine was eligible. No Intel SDE run has been done for the engine, and it is not measured on real hardware.
 
 Vector registers are not cleared after use, zmm registers included, as with the ymm registers today. Only the stack copies of a batch are cleared.
 

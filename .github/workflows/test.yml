@@ -42,9 +42,9 @@ jobs:
         run: |
           echo "The arm64 leg ran on ${{ runner.arch }}, so the ARM64 guard would be skipped"
           exit 1
-      # AVX-512 is not selectable on GitHub-hosted runners; roughly a third to a half of
-      # ubuntu-latest VMs expose it. The probe and the tests share this job because a separate
-      # detect job would land on a different VM with a different CPU.
+      # AVX-512 is not selectable on GitHub-hosted runners: the pool mixes CPUs, and only some
+      # of them support the AVX-512 engine. The probe and the tests share this job because a
+      # separate detect job would land on a different VM with a different CPU.
       - name: Probe the runner for AVX-512
         if: matrix.leg == 'default' && runner.arch == 'X64'
         shell: bash
@@ -59,12 +59,12 @@ jobs:
             vbmi=0
             if has avx512vbmi; then vbmi=1; fi
             printf 'MKV_EXPECT_ENGINE=X64Avx512Engine\nMKV_EXPECT_VBMI=%s\n' "$vbmi" >> "$GITHUB_ENV"
-            echo "::notice::CPU $model exposes AVX-512; the AVX-512 engine and its guard tests run."
-            echo "AVX-512: yes, $model" >> "$GITHUB_STEP_SUMMARY"
+            echo "::notice::CPU $model supports the AVX-512 engine (AVX-512F, AVX-512BW and GFNI); its guard tests run."
+            echo "AVX-512 engine: eligible, $model" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "MKV_EXPECT_ENGINE=X64Engine" >> "$GITHUB_ENV"
-            echo "::notice::CPU $model has no AVX-512; this run does not cover the AVX-512 engine."
-            echo "AVX-512: no, $model" >> "$GITHUB_STEP_SUMMARY"
+            echo "::notice::CPU $model does not support the AVX-512 engine, which needs AVX-512F, AVX-512BW and GFNI; this run does not cover it."
+            echo "AVX-512 engine: not eligible, $model" >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Test
         run: bash scripts/test.sh Release --report-github
