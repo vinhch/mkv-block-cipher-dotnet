@@ -55,15 +55,18 @@ jobs:
           flags=$(awk -F': ' '/^flags/ { print $2; exit }' "$cpuinfo")
           model=$(awk -F': ' '/^model name/ { print $2; exit }' "$cpuinfo")
           has() { case " $flags " in *" $1 "*) return 0 ;; *) return 1 ;; esac; }
-          if has avx512f && has avx512bw && has gfni; then
+          # The six flags Vector512.IsHardwareAccelerated and Gfni.V512 need. A hypervisor can
+          # mask CD, DQ or VL while leaving gfni visible, so checking the AVX-512 group alone
+          # would claim eligibility the runtime does not agree with.
+          if has avx512f && has avx512bw && has avx512cd && has avx512dq && has avx512vl && has gfni; then
             vbmi=0
             if has avx512vbmi; then vbmi=1; fi
             printf 'MKV_EXPECT_ENGINE=X64Avx512Engine\nMKV_EXPECT_VBMI=%s\n' "$vbmi" >> "$GITHUB_ENV"
-            echo "::notice::CPU $model supports the AVX-512 engine (AVX-512F, AVX-512BW and GFNI); its guard tests run."
+            echo "::notice::CPU $model supports the AVX-512 engine (AVX-512F, BW, CD, DQ, VL and GFNI); its guard tests run."
             echo "AVX-512 engine: eligible, $model" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "MKV_EXPECT_ENGINE=X64Engine" >> "$GITHUB_ENV"
-            echo "::notice::CPU $model does not support the AVX-512 engine, which needs AVX-512F, AVX-512BW and GFNI; this run does not cover it."
+            echo "::notice::CPU $model does not support the AVX-512 engine, which needs AVX-512F, BW, CD, DQ, VL and GFNI; this run does not cover it."
             echo "AVX-512 engine: not eligible, $model" >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Test
