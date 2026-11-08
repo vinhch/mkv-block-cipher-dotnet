@@ -334,7 +334,7 @@ public sealed class MkvGcmTests
     [MemberData(nameof(SegmentPositions))]
     public void EncryptSegment_MatchesEncryptWithBuiltNonce(uint segmentIndex, bool isLastSegment)
     {
-        using MkvGcm gcm = CreateGcm();
+        using MkvGcm gcm = CreateFrozenGcm();
         byte[] plaintext = SeededBytes(40, 4);
         byte[] aad = SeededBytes(AssociatedDataLength, 3);
         byte[] nonce = new byte[NonceBytes];
@@ -357,7 +357,7 @@ public sealed class MkvGcmTests
     [MemberData(nameof(SegmentPositions))]
     public void DecryptSegment_RoundTrips(uint segmentIndex, bool isLastSegment)
     {
-        using MkvGcm gcm = CreateGcm();
+        using MkvGcm gcm = CreateFrozenGcm();
         byte[] plaintext = SeededBytes(40, 4);
         byte[] aad = SeededBytes(AssociatedDataLength, 3);
         byte[] ciphertext = new byte[plaintext.Length];
@@ -377,7 +377,7 @@ public sealed class MkvGcmTests
         uint wrongSegmentIndex,
         bool wrongLastFlag)
     {
-        using MkvGcm gcm = CreateGcm();
+        using MkvGcm gcm = CreateFrozenGcm();
         byte[] plaintext = SeededBytes(40, 4);
         byte[] aad = SeededBytes(AssociatedDataLength, 3);
         byte[] ciphertext = new byte[plaintext.Length];
@@ -395,24 +395,25 @@ public sealed class MkvGcmTests
     [InlineData(8)]
     public void Segment_PrefixNotSevenBytes_Throws(int prefixLength)
     {
-        using MkvGcm gcm = CreateGcm();
+        using MkvGcm gcm = CreateFrozenGcm();
         byte[] prefix = new byte[prefixLength];
         byte[] buffer = new byte[16];
+        byte[] output = new byte[16];
         byte[] tag = new byte[MaxTagBytes];
 
         ArgumentException encryptEx = Assert.Throws<ArgumentException>(
-            () => gcm.EncryptSegment(prefix, 0, false, buffer, buffer, tag));
+            () => gcm.EncryptSegment(prefix, 0, false, buffer, output, tag));
         Assert.Equal("noncePrefix", encryptEx.ParamName);
 
         ArgumentException decryptEx = Assert.Throws<ArgumentException>(
-            () => gcm.DecryptSegment(prefix, 0, false, buffer, tag, buffer));
+            () => gcm.DecryptSegment(prefix, 0, false, buffer, tag, output));
         Assert.Equal("noncePrefix", decryptEx.ParamName);
     }
 
     [Fact]
     public void Segment_AfterDispose_Throws()
     {
-        MkvGcm gcm = CreateGcm();
+        MkvGcm gcm = CreateFrozenGcm();
         gcm.Dispose();
 
         byte[] buffer = new byte[16];
@@ -424,6 +425,8 @@ public sealed class MkvGcmTests
     }
 
     private static MkvGcm CreateGcm(int tagSize = MaxTagBytes) => new(SeededBytes(16, 1), tagSize);
+
+    private static MkvGcm CreateFrozenGcm() => new(Convert.FromHexString(FrozenKeyHex), MaxTagBytes);
 
     private static byte[] Seal(MkvGcm gcm, byte[] nonce, byte[] plaintext, byte[] aad)
     {

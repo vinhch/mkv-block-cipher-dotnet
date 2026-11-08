@@ -1,5 +1,67 @@
 namespace MkvBlockCipher.Tests;
 
+// Reads from data until failAfter bytes have been returned, then throws IOException on the next read.
+internal sealed class FaultingStream : Stream
+{
+    private readonly byte[] _data;
+    private readonly int _failAfter;
+    private int _position;
+
+    public FaultingStream(byte[] data, int failAfter)
+    {
+        _data = data;
+        _failAfter = failAfter;
+    }
+
+    public override bool CanRead => true;
+
+    public override bool CanSeek => false;
+
+    public override bool CanWrite => false;
+
+    public override long Length => throw new NotSupportedException();
+
+    public override long Position
+    {
+        get => throw new NotSupportedException();
+        set => throw new NotSupportedException();
+    }
+
+    public override void Flush()
+    {
+    }
+
+    public override int Read(Span<byte> buffer)
+    {
+        if (_position == _failAfter)
+        {
+            throw new IOException("Injected read failure.");
+        }
+
+        int available = Math.Min(_failAfter, _data.Length) - _position;
+        if (buffer.Length == 0 || available <= 0)
+        {
+            return 0;
+        }
+
+        int count = Math.Min(buffer.Length, available);
+        _data.AsSpan(_position, count).CopyTo(buffer);
+        _position += count;
+        return count;
+    }
+
+    public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
+        ValueTask.FromResult(Read(buffer.Span));
+
+    public override int Read(byte[] buffer, int offset, int count) => Read(buffer.AsSpan(offset, count));
+
+    public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+    public override void SetLength(long value) => throw new NotSupportedException();
+
+    public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+}
+
 // Returns at most one byte per Read, so every reader has to loop over short reads.
 internal sealed class TrickleStream : Stream
 {

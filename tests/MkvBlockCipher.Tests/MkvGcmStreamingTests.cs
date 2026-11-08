@@ -21,6 +21,7 @@ public sealed class MkvGcmStreamingTests
     private const int SegmentBytes = 16;
     private const int LargeSegmentBytes = 32;
     private const int TagBytes = 16;
+    private const int ShortTagBytes = 12;
     private const int WireSegmentBytes = SegmentBytes + TagBytes;
     private const int MultiSegmentLength = 56;
 
@@ -493,6 +494,143 @@ public sealed class MkvGcmStreamingTests
 
         Assert.Equal(0L, source.Position);
         Assert.Equal(0, destination.WriteCalls);
+    }
+
+    [Theory]
+    [MemberData(nameof(CallPaths))]
+    public void Encrypt_DestinationThrows_StopsAndPropagates(CallPath path)
+    {
+        using MkvGcm gcm = CreateGcm();
+        byte[] plaintext = Pattern(MultiSegmentLength, 40);
+        using MemoryStream source = new(plaintext);
+        using RecordingStream destination = new(failOnWrite: 2);
+
+        Assert.Throws<IOException>(() =>
+        {
+            EncryptInto(path, gcm, NoncePrefixA, source, destination, SegmentBytes, default, 0);
+        });
+        Assert.Equal(SealSegment(gcm, NoncePrefixA, 0, false, plaintext.AsSpan(0, SegmentBytes), default), destination.Written);
+    }
+
+    [Theory]
+    [MemberData(nameof(CallPaths))]
+    public void Encrypt_SourceThrows_WritesOnlyCompleteSegments(CallPath path)
+    {
+        using MkvGcm gcm = CreateGcm();
+        byte[] plaintext = Pattern(MultiSegmentLength, 41);
+        // Fails after 8 bytes of segment 2, which holds plaintext bytes 32 to 47.
+        using FaultingStream source = new(plaintext, failAfter: 2 * SegmentBytes + SegmentBytes / 2);
+        using RecordingStream destination = new();
+
+        Assert.Throws<IOException>(() =>
+        {
+            EncryptInto(path, gcm, NoncePrefixA, source, destination, SegmentBytes, default, 0);
+        });
+        byte[] expected =
+        [
+            .. SealSegment(gcm, NoncePrefixA, 0, false, plaintext.AsSpan(0, SegmentBytes), default),
+            .. SealSegment(gcm, NoncePrefixA, 1, false, plaintext.AsSpan(SegmentBytes, SegmentBytes), default),
+        ];
+        Assert.Equal(expected, destination.Written);
+    }
+
+    [Theory]
+    [MemberData(nameof(CallPaths))]
+    public void Decrypt_SourceThrows_WritesOnlyCompleteSegments(CallPath path)
+    {
+        using MkvGcm gcm = CreateGcm();
+        byte[] plaintext = Pattern(MultiSegmentLength, 42);
+        byte[] ciphertext = EncryptAll(CallPath.Sync, gcm, NoncePrefixA, plaintext, SegmentBytes, default);
+        // Fails after 16 bytes of wire segment 2, which holds wire bytes 64 to 95.
+        using FaultingStream source = new(ciphertext, failAfter: 2 * WireSegmentBytes + SegmentBytes);
+        using RecordingStream destination = new();
+
+        Assert.Throws<IOException>(() =>
+        {
+            DecryptInto(path, gcm, NoncePrefixA, source, destination, SegmentBytes, default, 0);
+        });
+        Assert.Equal(plaintext[..(2 * SegmentBytes)], destination.Written);
+    }
+
+    [Fact]
+    public async Task EncryptAsync_CancelledAfterFirstSegment()
+    {
+        using MkvGcm gcm = CreateGcm();
+        byte[] plaintext = Pattern(MultiSegmentLength, 43);
+        using MemoryStream source = new(plaintext);
+        using CancellationTokenSource cancellation = new();
+        using RecordingStream destination = new(cancelOnFirstWrite: cancellation);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            MkvGcmStreaming.EncryptAsync(gcm, NoncePrefixA, source, destination, SegmentBytes, default, cancellation.Token).AsTask());
+
+        Assert.Equal(SealSegment(gcm, NoncePrefixA, 0, false, plaintext.AsSpan(0, SegmentBytes), default), destination.Written);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Cancelled_BeforeFirstSegment_WritesNothing(bool decrypt)
+    {
+        using MkvGcm gcm = CreateGcm();
+        byte[] plaintext = Pattern(MultiSegmentLength, 44);
+        byte[] ciphertext = EncryptAll(CallPath.Sync, gcm, NoncePrefixA, plaintext, SegmentBytes, default);
+        using MemoryStream source = new(decrypt ? ciphertext : plaintext);
+        using RecordingStream destination = new();
+        using CancellationTokenSource cancellation = new();
+        cancellation.Cancel();
+
+        Func<ValueTask> run = decrypt
+            ? () => MkvGcmStreaming.DecryptAsync(gcm, NoncePrefixA, source, destination, SegmentBytes, default, cancellation.Token)
+            : () => MkvGcmStreaming.EncryptAsync(gcm, NoncePrefixA, source, destination, SegmentBytes, default, cancellation.Token);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run().AsTask());
+
+        Assert.Equal(0L, source.Position);
+        Assert.Equal(0, destination.WriteCalls);
+    }
+
+    [Theory]
+    [MemberData(nameof(CallPaths))]
+    public void Decrypt_TruncatedAtEveryOffset_FullFinalSegment(CallPath path)
+    {
+        using MkvGcm gcm = CreateGcm();
+        byte[] ciphertext = EncryptAll(path, gcm, NoncePrefixA, Pattern(3 * SegmentBytes, 45), SegmentBytes, default);
+
+        for (int length = 0; length < ciphertext.Length; length++)
+        {
+            byte[] truncated = ciphertext.AsSpan(0, length).ToArray();
+            Assert.Throws<CryptographicException>(() =>
+            {
+                DecryptAll(path, gcm, NoncePrefixA, truncated, SegmentBytes, default);
+            });
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(CallPaths))]
+    public void RoundTrip_TagSize12(CallPath path)
+    {
+        using MkvGcm gcm = new(Convert.FromHexString(FrozenKeyHex), ShortTagBytes);
+        byte[] plaintext = Pattern(MultiSegmentLength, 46);
+
+        byte[] ciphertext = EncryptAll(path, gcm, NoncePrefixA, plaintext, SegmentBytes, default);
+
+        Assert.Equal(plaintext.Length + ShortTagBytes * SegmentCount(plaintext.Length, SegmentBytes), ciphertext.Length);
+        Assert.Equal(plaintext, DecryptAll(path, gcm, NoncePrefixA, ciphertext, SegmentBytes, default));
+    }
+
+    [Theory]
+    [MemberData(nameof(CallPaths))]
+    public void Decrypt_TagSize16Stream_UnderTagSize12_Throws(CallPath path)
+    {
+        using MkvGcm gcm16 = CreateGcm();
+        using MkvGcm gcm12 = new(Convert.FromHexString(FrozenKeyHex), ShortTagBytes);
+        byte[] ciphertext = EncryptAll(path, gcm16, NoncePrefixA, Pattern(MultiSegmentLength, 47), SegmentBytes, default);
+
+        Assert.Throws<CryptographicException>(() =>
+        {
+            DecryptAll(path, gcm12, NoncePrefixA, ciphertext, SegmentBytes, default);
+        });
     }
 
     [Fact]
