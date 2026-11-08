@@ -149,8 +149,8 @@ Static segmented streams over `MkvGcm`, using the STREAM construction of ePrint 
 | `const int DefaultSegmentSizeBytes`, `MinSegmentSizeBytes`, `MaxSegmentSizeBytes` | 65536, 16 and 16 MiB |
 | `static void Encrypt(gcm, noncePrefix, source, destination, segmentSizeBytes = DefaultSegmentSizeBytes, associatedData = default)` | Reads `source` to its end, writes the segments, then flushes `destination`. The prefix is 7 bytes, the same for every segment |
 | `static void Decrypt(gcm, noncePrefix, source, destination, segmentSizeBytes = DefaultSegmentSizeBytes, associatedData = default)` | Verifies each segment before it writes that segment's plaintext. Use the prefix, segment size and associated data of `Encrypt` |
-| `static ValueTask EncryptAsync(gcm, noncePrefix, source, destination, segmentSizeBytes = DefaultSegmentSizeBytes, associatedData = default, cancellationToken = default)` | Async `Encrypt`. The arguments are checked before the call returns |
-| `static ValueTask DecryptAsync(gcm, noncePrefix, source, destination, segmentSizeBytes = DefaultSegmentSizeBytes, associatedData = default, cancellationToken = default)` | Async `Decrypt` |
+| `static ValueTask EncryptAsync(gcm, noncePrefix, source, destination, segmentSizeBytes = DefaultSegmentSizeBytes, associatedData = default, cancellationToken = default)` | Async `Encrypt`. The arguments are checked before the call returns. Checks the token before each segment; segments already written stay written |
+| `static ValueTask DecryptAsync(gcm, noncePrefix, source, destination, segmentSizeBytes = DefaultSegmentSizeBytes, associatedData = default, cancellationToken = default)` | Async `Decrypt`. Checks the token before each segment; segments already written stay written |
 
 The wire format and the stream limits are in [docs/security.md](docs/security.md#mode-rules) and [docs/security.md](docs/security.md#limits). On any exception the output is incomplete: discard it. The `MkvGcm` must not be disposed until the call returns, or until the `ValueTask` completes.
 
