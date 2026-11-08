@@ -425,7 +425,7 @@ public sealed class MkvGcmStreamingTests
         using MkvGcm gcm = CreateGcm();
         byte[] plaintext = Pattern(MultiSegmentLength, 29);
         byte[] ciphertext = EncryptAll(CallPath.Sync, gcm, NoncePrefixA, plaintext, SegmentBytes, default);
-        using MemoryStream source = new(ciphertext);
+        using TrickleStream source = new(ciphertext);
         using CancellationTokenSource cancellation = new();
         using RecordingStream destination = new(cancelOnFirstWrite: cancellation);
 
