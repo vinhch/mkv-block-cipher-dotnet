@@ -254,7 +254,7 @@ public static class MkvGcmStreaming
         }
     }
 
-    // Same framing as EncryptCore, with awaited stream I/O. The per-segment helpers are shared.
+    // Mirrors EncryptCore's framing with awaited I/O; change both loops together.
     internal static async ValueTask EncryptCoreAsync(
         MkvGcm gcm,
         ReadOnlyMemory<byte> noncePrefix,
@@ -309,7 +309,7 @@ public static class MkvGcmStreaming
         }
     }
 
-    // Same framing as DecryptCore, with awaited stream I/O. The per-segment helpers are shared.
+    // Mirrors DecryptCore's framing with awaited I/O; change both loops together.
     internal static async ValueTask DecryptCoreAsync(
         MkvGcm gcm,
         ReadOnlyMemory<byte> noncePrefix,
@@ -415,5 +415,7 @@ public static class MkvGcmStreaming
         {
             throw new ArgumentException("The destination stream must be writable.", nameof(destination));
         }
+
+        gcm.ThrowIfDisposed();
     }
 }

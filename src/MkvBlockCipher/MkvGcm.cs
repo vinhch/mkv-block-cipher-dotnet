@@ -226,6 +226,8 @@ public sealed class MkvGcm : IDisposable
         _cipher.Dispose();
     }
 
+    internal void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
+
     private static void BuildSegmentNonce(ReadOnlySpan<byte> noncePrefix, uint segmentIndex, bool isLastSegment, Span<byte> nonce)
     {
         RequireLength(noncePrefix, StreamNoncePrefixBytes, nameof(noncePrefix));

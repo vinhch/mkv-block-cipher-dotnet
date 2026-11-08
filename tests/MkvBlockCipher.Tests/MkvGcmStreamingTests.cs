@@ -476,6 +476,26 @@ public sealed class MkvGcmStreamingTests
     }
 
     [Fact]
+    public async Task Disposed_EmptySource_ThrowsObjectDisposedBeforeIo()
+    {
+        MkvGcm gcm = CreateGcm();
+        gcm.Dispose();
+        using MemoryStream source = new();
+        using RecordingStream destination = new();
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+        Assert.Throws<ObjectDisposedException>(() => MkvGcmStreaming.Encrypt(gcm, NoncePrefixA, source, destination));
+        Assert.Throws<ObjectDisposedException>(() => MkvGcmStreaming.Decrypt(gcm, NoncePrefixA, source, destination));
+        await Assert.ThrowsAsync<ObjectDisposedException>(() =>
+            MkvGcmStreaming.EncryptAsync(gcm, NoncePrefixA, source, destination, cancellationToken: cancellationToken).AsTask());
+        await Assert.ThrowsAsync<ObjectDisposedException>(() =>
+            MkvGcmStreaming.DecryptAsync(gcm, NoncePrefixA, source, destination, cancellationToken: cancellationToken).AsTask());
+
+        Assert.Equal(0L, source.Position);
+        Assert.Equal(0, destination.WriteCalls);
+    }
+
+    [Fact]
     public void Arguments_SegmentSizeOutOfRange_Throws()
     {
         using MkvGcm gcm = CreateGcm();
