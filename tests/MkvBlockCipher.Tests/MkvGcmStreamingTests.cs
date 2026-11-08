@@ -435,6 +435,34 @@ public sealed class MkvGcmStreamingTests
     }
 
     [Fact]
+    public async Task PublicAsync_RoundTripsWithAssociatedData()
+    {
+        using MkvGcm gcm = CreateGcm();
+        byte[] plaintext = Pattern(MultiSegmentLength, 31);
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+        using MemoryStream asyncSource = new(plaintext);
+        using MemoryStream asyncDestination = new();
+        await MkvGcmStreaming.EncryptAsync(gcm, NoncePrefixA, asyncSource, asyncDestination, SegmentBytes, AssociatedData1, cancellationToken);
+        byte[] ciphertext = asyncDestination.ToArray();
+
+        using MemoryStream syncSource = new(plaintext);
+        using MemoryStream syncDestination = new();
+        MkvGcmStreaming.Encrypt(gcm, NoncePrefixA, syncSource, syncDestination, SegmentBytes, AssociatedData1);
+        Assert.Equal(syncDestination.ToArray(), ciphertext);
+
+        using MemoryStream decryptSource = new(ciphertext);
+        using MemoryStream decrypted = new();
+        await MkvGcmStreaming.DecryptAsync(gcm, NoncePrefixA, decryptSource, decrypted, SegmentBytes, AssociatedData1, cancellationToken);
+        Assert.Equal(plaintext, decrypted.ToArray());
+
+        using MemoryStream wrongSource = new(ciphertext);
+        using MemoryStream wrongDestination = new();
+        await Assert.ThrowsAsync<CryptographicException>(() =>
+            MkvGcmStreaming.DecryptAsync(gcm, NoncePrefixA, wrongSource, wrongDestination, SegmentBytes, AssociatedData2, cancellationToken).AsTask());
+    }
+
+    [Fact]
     public void EncryptAsync_ArgumentsValidatedSynchronously()
     {
         using MkvGcm gcm = CreateGcm();
