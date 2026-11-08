@@ -122,6 +122,9 @@ GCM (SP 800-38D) with MKV-128 as the block cipher: authenticated encryption with
 | `int TagSizeInBytes` | Fixed at construction |
 | `void Encrypt(nonce, plaintext, ciphertext, tag, associatedData = default)` | `ciphertext` has the length of `plaintext`. May be in place |
 | `void Decrypt(nonce, ciphertext, tag, plaintext, associatedData = default)` | Verifies the tag before decrypting. On failure zeroes `plaintext` and throws |
+| `const int StreamNoncePrefixBytes` | 7 |
+| `void EncryptSegment(noncePrefix, segmentIndex, isLastSegment, plaintext, ciphertext, tag, associatedData = default)` | STREAM segment; nonce is prefix, big-endian index, last flag |
+| `void DecryptSegment(noncePrefix, segmentIndex, isLastSegment, ciphertext, tag, plaintext, associatedData = default)` | As `Decrypt` |
 | `void Dispose()` | As for `MkvCipher` |
 
 ### MkvCcm

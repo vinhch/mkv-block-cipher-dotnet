@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Security.Cryptography;
 using MkvBlockCipher.Modes;
 
@@ -23,6 +24,9 @@ public sealed class MkvGcm : IDisposable
 
     /// <summary>Tag lengths in bytes: 12 to 16.</summary>
     public static KeySizes TagByteSizes { get; } = new(12, 16, 1);
+
+    /// <summary>Bytes of the nonce that a STREAM segment takes from the caller: the rest is the index and the last flag.</summary>
+    public const int StreamNoncePrefixBytes = 7;
 
     private readonly MkvCipher _cipher;
 
@@ -137,6 +141,76 @@ public sealed class MkvGcm : IDisposable
     }
 
     /// <summary>
+    /// Encrypts one STREAM segment. The nonce is <paramref name="noncePrefix"/>, then <paramref name="segmentIndex"/> as
+    /// 4 big-endian bytes, then one byte that is 1 for the last segment and 0 otherwise. Use each (key, prefix) pair for
+    /// one stream only, and never reuse a segment index within it.
+    /// </summary>
+    /// <param name="noncePrefix"><see cref="StreamNoncePrefixBytes"/> bytes, the same for every segment of a stream.</param>
+    /// <param name="segmentIndex">Zero-based segment number.</param>
+    /// <param name="isLastSegment">True only for the final segment of the stream.</param>
+    /// <param name="plaintext">Data to encrypt. Any length, including zero.</param>
+    /// <param name="ciphertext">
+    /// Receives the ciphertext, the same length as <paramref name="plaintext"/>. May be the same span for in-place use.
+    /// </param>
+    /// <param name="tag"><see cref="TagSizeInBytes"/> bytes. Receives the tag.</param>
+    /// <param name="associatedData">Data to authenticate without encrypting. Any length, including zero.</param>
+    /// <exception cref="ObjectDisposedException">The instance has been disposed.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="noncePrefix"/> is not <see cref="StreamNoncePrefixBytes"/> long, or a length is wrong, or an output
+    /// overlaps an input other than <paramref name="plaintext"/> and <paramref name="ciphertext"/> in place.
+    /// Nothing is written in these cases.
+    /// </exception>
+    public void EncryptSegment(
+        ReadOnlySpan<byte> noncePrefix,
+        uint segmentIndex,
+        bool isLastSegment,
+        ReadOnlySpan<byte> plaintext,
+        Span<byte> ciphertext,
+        Span<byte> tag,
+        ReadOnlySpan<byte> associatedData = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        Span<byte> nonce = stackalloc byte[NonceBytes];
+        BuildSegmentNonce(noncePrefix, segmentIndex, isLastSegment, nonce);
+        Encrypt(nonce, plaintext, ciphertext, tag, associatedData);
+    }
+
+    /// <summary>
+    /// Verifies one STREAM segment, then decrypts it. The nonce is built as for <see cref="EncryptSegment"/>. Nothing is
+    /// decrypted unless the tag matches. A mismatch zeroes <paramref name="plaintext"/> before it throws.
+    /// </summary>
+    /// <param name="noncePrefix"><see cref="StreamNoncePrefixBytes"/> bytes, the prefix used to encrypt the segment.</param>
+    /// <param name="segmentIndex">The segment number used to encrypt.</param>
+    /// <param name="isLastSegment">The last-segment flag used to encrypt.</param>
+    /// <param name="ciphertext">Data to decrypt. Any length, including zero.</param>
+    /// <param name="tag"><see cref="TagSizeInBytes"/> bytes, the tag from <see cref="EncryptSegment"/>.</param>
+    /// <param name="plaintext">
+    /// Receives the plaintext, the same length as <paramref name="ciphertext"/>. May be the same span for in-place use.
+    /// </param>
+    /// <param name="associatedData">The associated data used to encrypt.</param>
+    /// <exception cref="ObjectDisposedException">The instance has been disposed.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="noncePrefix"/> is not <see cref="StreamNoncePrefixBytes"/> long, or a length is wrong, or an output
+    /// overlaps an input other than <paramref name="ciphertext"/> and <paramref name="plaintext"/> in place.
+    /// Nothing is written in these cases.
+    /// </exception>
+    /// <exception cref="CryptographicException">The tag does not match. <paramref name="plaintext"/> is zeroed.</exception>
+    public void DecryptSegment(
+        ReadOnlySpan<byte> noncePrefix,
+        uint segmentIndex,
+        bool isLastSegment,
+        ReadOnlySpan<byte> ciphertext,
+        ReadOnlySpan<byte> tag,
+        Span<byte> plaintext,
+        ReadOnlySpan<byte> associatedData = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        Span<byte> nonce = stackalloc byte[NonceBytes];
+        BuildSegmentNonce(noncePrefix, segmentIndex, isLastSegment, nonce);
+        Decrypt(nonce, ciphertext, tag, plaintext, associatedData);
+    }
+
+    /// <summary>
     /// Zeroes the GHASH key and the cipher's round keys. Encrypt and Decrypt throw <see cref="ObjectDisposedException"/>
     /// afterwards. A second call does nothing.
     /// </summary>
@@ -150,6 +224,14 @@ public sealed class MkvGcm : IDisposable
         _disposed = true;
         CryptographicOperations.ZeroMemory(_h);
         _cipher.Dispose();
+    }
+
+    private static void BuildSegmentNonce(ReadOnlySpan<byte> noncePrefix, uint segmentIndex, bool isLastSegment, Span<byte> nonce)
+    {
+        RequireLength(noncePrefix, StreamNoncePrefixBytes, nameof(noncePrefix));
+        noncePrefix.CopyTo(nonce);
+        BinaryPrimitives.WriteUInt32BigEndian(nonce.Slice(StreamNoncePrefixBytes), segmentIndex);
+        nonce[NonceBytes - 1] = isLastSegment ? (byte)0x01 : (byte)0x00;
     }
 
     private static void RequireDisjoint(ReadOnlySpan<byte> output, ReadOnlySpan<byte> input, string paramName)

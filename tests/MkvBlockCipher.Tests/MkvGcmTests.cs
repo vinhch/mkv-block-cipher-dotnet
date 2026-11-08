@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Security.Cryptography;
 using MkvBlockCipher.Modes;
 using Xunit;
@@ -21,6 +22,8 @@ public sealed class MkvGcmTests
     private const string FrozenAssociatedDataHex = "FFEEDDCCBBAA99887766554433";
     private const string FrozenCiphertextHex = "D906CC96CAC7CDED02FB626BC15A45D46018D2CFFC28F51FD79B422E07C5946F99E3C903D9D32CBC";
     private const string FrozenTagHex = "B332AAFAA23A645E5D9078A6805D5E2C";
+
+    private static readonly byte[] SegmentNoncePrefix = { 0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6 };
 
     public static TheoryData<int, int> RoundTripCases()
     {
@@ -302,6 +305,122 @@ public sealed class MkvGcmTests
         byte[] decrypted = new byte[plaintext.Length];
         gcm.Decrypt(nonce, Convert.FromHexString(FrozenCiphertextHex), Convert.FromHexString(FrozenTagHex), decrypted, aad);
         Assert.Equal(plaintext, decrypted);
+    }
+
+    public static TheoryData<uint, bool> SegmentPositions()
+    {
+        TheoryData<uint, bool> cases = new();
+        foreach (uint segmentIndex in new[] { 0u, 1u, uint.MaxValue })
+        {
+            foreach (bool isLastSegment in new[] { false, true })
+            {
+                cases.Add(segmentIndex, isLastSegment);
+            }
+        }
+
+        return cases;
+    }
+
+    public static TheoryData<uint, bool, uint, bool> WrongSegmentArguments() =>
+        new()
+        {
+            { 0u, false, 1u, false },
+            { 1u, true, 2u, true },
+            { 0u, false, 0u, true },
+            { 1u, true, 1u, false },
+        };
+
+    [Theory]
+    [MemberData(nameof(SegmentPositions))]
+    public void EncryptSegment_MatchesEncryptWithBuiltNonce(uint segmentIndex, bool isLastSegment)
+    {
+        using MkvGcm gcm = CreateGcm();
+        byte[] plaintext = SeededBytes(40, 4);
+        byte[] aad = SeededBytes(AssociatedDataLength, 3);
+        byte[] nonce = new byte[NonceBytes];
+        SegmentNoncePrefix.CopyTo(nonce, 0);
+        BinaryPrimitives.WriteUInt32BigEndian(nonce.AsSpan(MkvGcm.StreamNoncePrefixBytes), segmentIndex);
+        nonce[NonceBytes - 1] = isLastSegment ? (byte)0x01 : (byte)0x00;
+
+        byte[] expectedCiphertext = new byte[plaintext.Length];
+        byte[] expectedTag = new byte[MaxTagBytes];
+        gcm.Encrypt(nonce, plaintext, expectedCiphertext, expectedTag, aad);
+
+        byte[] ciphertext = new byte[plaintext.Length];
+        byte[] tag = new byte[MaxTagBytes];
+        gcm.EncryptSegment(SegmentNoncePrefix, segmentIndex, isLastSegment, plaintext, ciphertext, tag, aad);
+        Assert.Equal(expectedCiphertext, ciphertext);
+        Assert.Equal(expectedTag, tag);
+    }
+
+    [Theory]
+    [MemberData(nameof(SegmentPositions))]
+    public void DecryptSegment_RoundTrips(uint segmentIndex, bool isLastSegment)
+    {
+        using MkvGcm gcm = CreateGcm();
+        byte[] plaintext = SeededBytes(40, 4);
+        byte[] aad = SeededBytes(AssociatedDataLength, 3);
+        byte[] ciphertext = new byte[plaintext.Length];
+        byte[] tag = new byte[MaxTagBytes];
+        gcm.EncryptSegment(SegmentNoncePrefix, segmentIndex, isLastSegment, plaintext, ciphertext, tag, aad);
+
+        byte[] decrypted = new byte[plaintext.Length];
+        gcm.DecryptSegment(SegmentNoncePrefix, segmentIndex, isLastSegment, ciphertext, tag, decrypted, aad);
+        Assert.Equal(plaintext, decrypted);
+    }
+
+    [Theory]
+    [MemberData(nameof(WrongSegmentArguments))]
+    public void DecryptSegment_WrongIndexOrFlag_Throws(
+        uint segmentIndex,
+        bool isLastSegment,
+        uint wrongSegmentIndex,
+        bool wrongLastFlag)
+    {
+        using MkvGcm gcm = CreateGcm();
+        byte[] plaintext = SeededBytes(40, 4);
+        byte[] aad = SeededBytes(AssociatedDataLength, 3);
+        byte[] ciphertext = new byte[plaintext.Length];
+        byte[] tag = new byte[MaxTagBytes];
+        gcm.EncryptSegment(SegmentNoncePrefix, segmentIndex, isLastSegment, plaintext, ciphertext, tag, aad);
+
+        byte[] destination = Enumerable.Repeat(Sentinel, plaintext.Length).ToArray();
+        Assert.Throws<CryptographicException>(
+            () => gcm.DecryptSegment(SegmentNoncePrefix, wrongSegmentIndex, wrongLastFlag, ciphertext, tag, destination, aad));
+        Assert.Equal(new byte[plaintext.Length], destination);
+    }
+
+    [Theory]
+    [InlineData(6)]
+    [InlineData(8)]
+    public void Segment_PrefixNotSevenBytes_Throws(int prefixLength)
+    {
+        using MkvGcm gcm = CreateGcm();
+        byte[] prefix = new byte[prefixLength];
+        byte[] buffer = new byte[16];
+        byte[] tag = new byte[MaxTagBytes];
+
+        ArgumentException encryptEx = Assert.Throws<ArgumentException>(
+            () => gcm.EncryptSegment(prefix, 0, false, buffer, buffer, tag));
+        Assert.Equal("noncePrefix", encryptEx.ParamName);
+
+        ArgumentException decryptEx = Assert.Throws<ArgumentException>(
+            () => gcm.DecryptSegment(prefix, 0, false, buffer, tag, buffer));
+        Assert.Equal("noncePrefix", decryptEx.ParamName);
+    }
+
+    [Fact]
+    public void Segment_AfterDispose_Throws()
+    {
+        MkvGcm gcm = CreateGcm();
+        gcm.Dispose();
+
+        byte[] buffer = new byte[16];
+        byte[] tag = new byte[MaxTagBytes];
+        Assert.Throws<ObjectDisposedException>(
+            () => gcm.EncryptSegment(SegmentNoncePrefix, 0, false, buffer, buffer, tag));
+        Assert.Throws<ObjectDisposedException>(
+            () => gcm.DecryptSegment(SegmentNoncePrefix, 0, false, buffer, tag, buffer));
     }
 
     private static MkvGcm CreateGcm(int tagSize = MaxTagBytes) => new(SeededBytes(16, 1), tagSize);
