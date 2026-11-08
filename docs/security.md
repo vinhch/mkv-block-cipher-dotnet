@@ -47,6 +47,8 @@ Vector registers are not cleared after use, zmm registers included, as with the 
 - `MkvCtrHmac` is encrypt-then-MAC: CTR with the block cipher, then HMAC-SHA256 over the associated data, the nonce, the ciphertext, and both lengths as 64-bit values. Use it, or `MkvGcm` or `MkvCcm`, for data that crosses a trust boundary. Decrypt verifies the tag before it decrypts anything. A tag mismatch zeroes the destination and throws one generic `CryptographicException`.
 - `MkvGcm` is GCM ([SP 800-38D](https://csrc.nist.gov/pubs/sp/800/38/d/final)) with MKV-128 as the block cipher: authenticated, with a 12-byte nonce and a tag of 12 to 16 bytes. Decrypt verifies the tag before it decrypts anything, and a tag mismatch zeroes the destination and throws one generic `CryptographicException`. A truncated tag weakens forgery resistance. SP 800-38D allows truncation only for restricted uses, so keep the 16-byte tag unless the format requires less.
 - `MkvCcm` is CCM ([SP 800-38C](https://csrc.nist.gov/pubs/sp/800/38/c/upd1/final)) with MKV-128 as the block cipher: authenticated, with a 7 to 13-byte nonce and an even tag of 4 to 16 bytes. Unlike GCM, Decrypt decrypts first and then verifies the tag over the recovered plaintext, so the unverified plaintext is briefly in the destination. A tag mismatch zeroes the destination and throws one generic `CryptographicException`. A tag of n bytes gives forgery resistance of about 2^-(8n) per attempt, so a 4-byte tag is weak against an attacker who can retry. Keep 16 bytes unless the format requires less.
+- `MkvGcmStreaming` seals a stream in segments over `MkvGcm`, with the STREAM construction of ePrint 2015/189, each segment sealed with GCM. Each segment is its ciphertext then its tag, with no header. Its nonce is the caller's 7-byte prefix, a 4-byte big-endian segment index and a last-segment flag. Truncation, reordering, dropped, duplicated and appended segments fail verification. Decrypt verifies each segment before it writes that segment's plaintext, so earlier segments are already in the output when a later one fails. Discard the output on any exception.
+- The `MkvGcmStreaming` wire format is stable. It changes only to fix a defect or with an algorithm change, and either change is a major version.
 - Key wrap (`EncryptKeyWrap`, `EncryptKeyWrapPadded` and their decrypt methods) wraps key data under a key-encryption key, for example per-file keys stored in metadata. It is deterministic: the same key-encryption key and key data give the same output. It needs a 128-bit block, so `Mkv256` throws `InvalidOperationException`.
 - Key wrap detects a changed wrapped key on unwrap: KW checks a 64-bit initial value, and KWP checks a 32-bit prefix, a length field and zero padding. A failed check zeroes the destination and throws one generic `CryptographicException`.
 - Key wrap has no associated data: it does not bind a wrapped key to a file, dataset or other context. Keep that binding in the metadata.
@@ -61,6 +63,9 @@ Vector registers are not cleared after use, zmm registers included, as with the 
 - `MkvCtrHmac` nonce: `BlockSizeBytes - 4` bytes, which is 12 bytes for `Mkv128` and 28 bytes for `Mkv256`. Never reuse a nonce under one key. With 96-bit random nonces, the chance of a repeat reaches about 2^-33 at 2^32 messages under one key, so keep each key well below that count.
 - `MkvGcm` nonce: exactly 12 bytes. Never reuse a nonce under one key: a repeat reveals the XOR of the two plaintexts and lets an attacker forge tags. With random 96-bit nonces, keep the messages under one key at or below 2^32, the SP 800-38D bound for random IVs.
 - `MkvCcm` nonce: 7 to 13 bytes, unique per key. A repeat reveals the XOR of the two plaintexts and lets an attacker forge tags. The nonce is the only freshness the mode has, and its length sets the payload limit (see Limits). Choose the length per format, and keep it fixed for a key.
+- `MkvGcmStreaming` prefix: 7 bytes, the same for every segment of one stream. Use one key and one prefix per stream: derive a key per stream, for example with HKDF-SHA256 over a master key and a random salt that the caller stores. Sharing one key across streams is safe only with prefixes that never repeat, such as a counter. With random 7-byte prefixes, keep it to about 2^12 streams per key, a collision chance near 2^-33. A repeated prefix repeats GCM nonces, which reveals the XOR of the plaintexts and lets an attacker forge tags.
+- `MkvGcmStreaming` context: put context such as a file id in `associatedData`, or in the HKDF `info` when the key is derived per stream. Without either, an attacker can swap two whole streams, with their salts, and each decrypts as the other.
+- `MkvGcmStreaming` rollback: nothing stops a rollback to an older complete stream under the same key, prefix and associated data.
 
 ## Limits
 
@@ -74,6 +79,8 @@ Vector registers are not cleared after use, zmm registers included, as with the 
 | `MkvCcm` message | 2^(8q) - 1 bytes, where q = 15 - nonce length: 65535 bytes for a 13-byte nonce, 16777215 bytes for a 12-byte nonce. Nonces of 7 to 11 bytes allow any `int` length | `ArgumentException`, no output |
 | `MkvCcm` tag | 4 to 16 bytes, an even length, taken from the `tag` span | `ArgumentException`, no output |
 | `MkvCcm` nonce | 7 to 13 bytes | `ArgumentException`, no output |
+| `MkvGcmStreaming` segment size | 16 bytes to 16 MiB (`MinSegmentSizeBytes` to `MaxSegmentSizeBytes`). Encrypt and decrypt must use the same size; it is not stored | `ArgumentOutOfRangeException`, no output |
+| `MkvGcmStreaming` segments per stream | At most 2^32 segments, so at most 2^32 times the segment size in bytes | `ArgumentException` on encrypt, after earlier segments were written; `CryptographicException` on decrypt, before that segment is decrypted |
 | Key wrap length | KW: a multiple of 8 bytes, at least 16 for wrap and at least 24 for unwrap. KWP: at least 1 byte to wrap, at least 16 to unwrap. `Mkv128` only. | `ArgumentException`, or `InvalidOperationException` on `Mkv256` |
 | Key wrap output | An output that does not fit in an `int`: `GetKeyWrapPaddedLength` throws | `ArgumentOutOfRangeException` |
 | XTS data unit | 16 bytes to 2^20 blocks (16 MiB) | `ArgumentException`, no output |
@@ -88,6 +95,7 @@ The unwrap destination must hold at least `ciphertext.Length - 8` bytes. `TryDec
 - `MkvGcm` methods are safe to call concurrently after construction. `Dispose` must not overlap them.
 - `MkvCcm` methods are safe to call concurrently after construction. `Dispose` must not overlap them.
 - `MkvCtrHmac` methods are safe to call concurrently after construction. Each call rents a pooled HMAC state, so the pool grows with concurrency. `Dispose` must not overlap them.
+- `MkvGcmStreaming` methods are static and safe to call concurrently when their `MkvGcm` is. The `MkvGcm` must not be disposed until the call returns, or until the returned `ValueTask` completes.
 
 ## Audit status
 

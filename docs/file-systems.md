@@ -46,6 +46,7 @@ XTS over MKV-128, with the sector number as the tweak. The XTS data-unit limit a
 | CTR | `MkvCipher.TransformCtr` |
 | CTR then HMAC-SHA256 with associated data | `MkvCtrHmac.Encrypt`, `MkvCtrHmac.Decrypt` |
 | GCM: ZFS-style per-block AEAD | `MkvGcm.Encrypt`, `MkvGcm.Decrypt` (12-byte nonce, 12 to 16-byte tag; `Mkv128` only) |
+| Large file or backup stream: `MkvGcmStreaming` | `MkvGcmStreaming.Encrypt`, `MkvGcmStreaming.Decrypt` and their async forms (segments over `MkvGcm`; `Mkv128` only) |
 | CCM: ZFS-style AEAD, alternative to GCM | `MkvCcm.Encrypt`, `MkvCcm.Decrypt` (7 to 13-byte nonce, 4 to 16-byte even tag; `Mkv128` only) |
 | XTS: sector-layer encryption | `MkvXts.Encrypt`, `MkvXts.Decrypt` (data unit of 16 bytes to 2^20 blocks; unauthenticated). `Mkv128` only |
 | Key wrap: per-file or per-dataset keys | `MkvCipher.EncryptKeyWrap`, `MkvCipher.DecryptKeyWrap` (KW, multiple of 8 bytes); `MkvCipher.EncryptKeyWrapPadded`, `MkvCipher.DecryptKeyWrapPadded` (KWP, any length). `Mkv128` only |

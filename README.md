@@ -1,6 +1,6 @@
 # MkvBlockCipher
 
-MkvBlockCipher is a .NET library for the MKV block cipher, with 128-bit and 256-bit blocks, CBC (padded, unpadded or ciphertext stealing) and CTR modes, an authenticated mode (CTR with HMAC-SHA256), GCM (SP 800-38D authenticated encryption, 128-bit blocks only), CCM (SP 800-38C authenticated encryption, 128-bit blocks only), MKV key wrap (KW and KWP, 128-bit blocks only), and XTS (IEEE 1619 sector encryption, 128-bit blocks only).
+MkvBlockCipher is a .NET library for the MKV block cipher, with 128-bit and 256-bit blocks, CBC (padded, unpadded or ciphertext stealing) and CTR modes, an authenticated mode (CTR with HMAC-SHA256), GCM (SP 800-38D authenticated encryption with segmented streams, 128-bit blocks only), CCM (SP 800-38C authenticated encryption, 128-bit blocks only), MKV key wrap (KW and KWP, 128-bit blocks only), and XTS (IEEE 1619 sector encryption, 128-bit blocks only).
 
 This is an unofficial implementation and has not been audited. Read [DISCLAIMER.md](DISCLAIMER.md) and [docs/security.md](docs/security.md) before you protect data with it.
 
@@ -49,9 +49,21 @@ aead.Encrypt(nonce, message, encrypted, tag);
 
 byte[] decrypted = new byte[encrypted.Length];
 aead.Decrypt(nonce, encrypted, tag, decrypted);
+
+// Large data: segments over MkvGcm. Keep the segment size the same for decrypt.
+// A random 7-byte prefix keeps one key to about 2^12 streams. Derive a key per stream for more.
+using var gcm = new MkvGcm(key, tagSizeInBytes: 16);
+byte[] noncePrefix = RandomNumberGenerator.GetBytes(MkvGcm.StreamNoncePrefixBytes);
+using var plainStream = new MemoryStream(message);
+using var sealedStream = new MemoryStream();
+MkvGcmStreaming.Encrypt(gcm, noncePrefix, plainStream, sealedStream);
+
+sealedStream.Position = 0;
+using var openedStream = new MemoryStream();
+MkvGcmStreaming.Decrypt(gcm, noncePrefix, sealedStream, openedStream);
 ```
 
-Use `MkvCtrHmac`, `MkvGcm` or `MkvCcm` for data from untrusted sources. Limits and key handling are in [docs/security.md](docs/security.md).
+Use `MkvCtrHmac`, `MkvGcm`, `MkvGcmStreaming` or `MkvCcm` for data from untrusted sources. Limits and key handling are in [docs/security.md](docs/security.md).
 
 ## API reference
 
@@ -127,6 +139,20 @@ GCM (SP 800-38D) with MKV-128 as the block cipher: authenticated encryption with
 | `void DecryptSegment(noncePrefix, segmentIndex, isLastSegment, ciphertext, tag, plaintext, associatedData = default)` | As `Decrypt` |
 | `void Dispose()` | As for `MkvCipher` |
 
+### MkvGcmStreaming
+
+Static segmented streams over `MkvGcm`, using the STREAM construction of ePrint 2015/189: each segment is sealed with GCM, and the nonce carries the segment index and a last-segment flag. Takes a source and a destination `Stream`; neither is disposed.
+
+| Member | Notes |
+| --- | --- |
+| `const int DefaultSegmentSizeBytes`, `MinSegmentSizeBytes`, `MaxSegmentSizeBytes` | 65536, 16 and 16 MiB |
+| `static void Encrypt(gcm, noncePrefix, source, destination, segmentSizeBytes = DefaultSegmentSizeBytes, associatedData = default)` | Reads `source` to its end, writes the segments, then flushes `destination`. The prefix is 7 bytes, the same for every segment |
+| `static void Decrypt(gcm, noncePrefix, source, destination, segmentSizeBytes = DefaultSegmentSizeBytes, associatedData = default)` | Verifies each segment before it writes that segment's plaintext. Use the prefix, segment size and associated data of `Encrypt` |
+| `static ValueTask EncryptAsync(gcm, noncePrefix, source, destination, segmentSizeBytes = DefaultSegmentSizeBytes, associatedData = default, cancellationToken = default)` | Async `Encrypt`. The arguments are checked before the call returns |
+| `static ValueTask DecryptAsync(gcm, noncePrefix, source, destination, segmentSizeBytes = DefaultSegmentSizeBytes, associatedData = default, cancellationToken = default)` | Async `Decrypt` |
+
+The wire format and the stream limits are in [docs/security.md](docs/security.md#mode-rules) and [docs/security.md](docs/security.md#limits). On any exception the output is incomplete: discard it. The `MkvGcm` must not be disposed until the call returns, or until the `ValueTask` completes.
+
 ### MkvCcm
 
 CCM (SP 800-38C) with MKV-128 as the block cipher: authenticated encryption with a 7 to 13-byte nonce. The tag length comes from the `tag` span. Implements `IDisposable`.
@@ -150,12 +176,12 @@ CCM (SP 800-38C) with MKV-128 as the block cipher: authenticated encryption with
 
 ## Advanced usage
 
-- **Allocation.** The span overloads allocate nothing per call, except that `MkvCtrHmac` allocates when concurrent calls grow its pool. The `byte[]` overloads allocate the result. Create one cipher per key and reuse it.
+- **Allocation.** The span overloads allocate nothing per call, except that `MkvCtrHmac` allocates when concurrent calls grow its pool, and `MkvGcmStreaming` allocates two pinned buffers per call. The `byte[]` overloads allocate the result. Create one cipher per key and reuse it.
 - **Output sizes.** Use `BlockSizeBytes` for one block, `GetCiphertextLengthCbc` for CBC, `GetKeyWrapPaddedLength` for KWP, and the input length for CBC ciphertext stealing. The `Try` methods return `false` and write nothing when the destination is too short. The other overloads throw `ArgumentException`.
 - **In-place.** The same start for source and destination is allowed in every mode. Partial overlap throws.
 - **Counters.** `TransformCtr` takes an initial counter of one block. A call whose counter would wrap past all-ones throws before it writes anything.
 - **Associated data.** `MkvCtrHmac`, `MkvGcm` and `MkvCcm` authenticate the associated data without encrypting it. Pass the same bytes to `Decrypt`.
-- **Concurrency.** `MkvCipher` block, CBC, CTR and key-wrap calls may run concurrently on one instance, but `Dispose` must not overlap them. `MkvCtrHmac`, `MkvXts`, `MkvGcm` and `MkvCcm` calls may run concurrently, and `Dispose` must not overlap them.
+- **Concurrency.** `MkvCipher` block, CBC, CTR and key-wrap calls may run concurrently on one instance, but `Dispose` must not overlap them. `MkvCtrHmac`, `MkvXts`, `MkvGcm` and `MkvCcm` calls may run concurrently, and `Dispose` must not overlap them. `MkvGcmStreaming` is static and may run concurrently when its `MkvGcm` may.
 - **Limits.** Message length limits and nonce rules are in [docs/security.md](docs/security.md#limits).
 
 ## Revisions
@@ -172,8 +198,8 @@ Two revisions, `Rev2024` and `Rev2025` (default), share the S-box, the mix matri
 ## Security notes
 
 - The library has not been independently audited.
-- Use `MkvCtrHmac`, `MkvGcm` or `MkvCcm` for untrusted data. CBC, CBC ciphertext stealing, CTR and XTS alone are unauthenticated.
-- CBC IVs must be random, except that CBC ciphertext stealing for file names is deterministic by design. `MkvCtrHmac`, `MkvGcm` and `MkvCcm` nonces must be unique per key.
+- Use `MkvCtrHmac`, `MkvGcm`, `MkvGcmStreaming` or `MkvCcm` for untrusted data. CBC, CBC ciphertext stealing, CTR and XTS alone are unauthenticated.
+- CBC IVs must be random, except that CBC ciphertext stealing for file names is deterministic by design. `MkvCtrHmac`, `MkvGcm` and `MkvCcm` nonces, and `MkvGcmStreaming` prefixes, must be unique per key.
 - Never reuse a nonce, a CTR counter range or an XTS data unit number under one key.
 - Key wrap protects key data under a key-encryption key. Use a key-encryption key only for key wrap, and see the key wrap rules in [docs/security.md](docs/security.md#mode-rules).
 - `Dispose` zeroes the round keys. Details and limits are in [docs/security.md](docs/security.md).

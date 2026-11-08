@@ -1,6 +1,6 @@
 # Agent guide
 
-MkvBlockCipher is a .NET library (`net10.0`) for the MKV block cipher: `Mkv128` and `Mkv256` blocks, with block, CBC (including ciphertext stealing), CTR and CTR-then-HMAC modes, GCM (`Mkv128` only), CCM (`Mkv128` only), MKV key wrap (KW and KWP, `Mkv128` only), and XTS (`Mkv128` only). Correctness is the bar: a change is right when every engine still produces the reference outputs, and the default engine stays constant-time. The repository is licensed for viewing only (`LICENSE`): never describe it as open source.
+MkvBlockCipher is a .NET library (`net10.0`) for the MKV block cipher: `Mkv128` and `Mkv256` blocks, with block, CBC (including ciphertext stealing), CTR and CTR-then-HMAC modes, GCM (`Mkv128` only) with segmented streams, CCM (`Mkv128` only), MKV key wrap (KW and KWP, `Mkv128` only), and XTS (`Mkv128` only). Correctness is the bar: a change is right when every engine still produces the reference outputs, and the default engine stays constant-time. The repository is licensed for viewing only (`LICENSE`): never describe it as open source.
 
 Public types, all in `src/MkvBlockCipher/`:
 
@@ -9,7 +9,8 @@ Public types, all in `src/MkvBlockCipher/`:
 | `MkvCipher` | Block, CBC (PKCS#7, unpadded or ciphertext stealing), CTR and key wrap (KW, KWP) operations for one key |
 | `MkvCtrHmac` | CTR then HMAC-SHA256 with associated data, 32-byte key and tag |
 | `MkvXts` | IEEE 1619 XTS over one data unit, 32- or 64-byte key (data half and tweak half), `Mkv128` only |
-| `MkvGcm` | GCM (SP 800-38D) over MKV-128: 16, 24 or 32-byte key, 12-byte nonce, 12 to 16-byte tag, `Mkv128` only |
+| `MkvGcm` | GCM (SP 800-38D) over MKV-128: 16, 24 or 32-byte key, 12-byte nonce, 12 to 16-byte tag, `Mkv128` only. Also `EncryptSegment` and `DecryptSegment` for STREAM segments |
+| `MkvGcmStreaming` | Static segmented streams over `MkvGcm` (STREAM construction, ePrint 2015/189): `Stream` in and out, sync and async, segments of 16 bytes to 16 MiB. `Mkv128` only, through `MkvGcm` |
 | `MkvCcm` | CCM (SP 800-38C) over MKV-128: 16, 24 or 32-byte key, 7 to 13-byte nonce, 4 to 16-byte even tag, `Mkv128` only |
 | `MkvBlockSize` | `Mkv128` (16-byte block) or `Mkv256` (32-byte block) |
 | `MkvRevision` | `Rev2024` (earlier draft) or `Rev2025` (default) |
@@ -39,20 +40,21 @@ Some facts are copied across files and must change together:
 - Expected values that come from reference material never change to make a test pass: the Rev2025 ciphertexts, RK[1] prefixes and the one sourced last round key, and all Rev2024 data. Values this project computed (the other Rev2025 last round keys, the CTR-HMAC frozen vector) may change, with the reason in the commit.
 - A new engine goes into both `EngineFactory.Create` and `EngineFactory.AllSupported`. Parity against `ScalarEngine` (`EngineParityTests`) is what covers every engine class. Known-answer tests reach `ScalarEngine`, `TableEngine` and the `ConstantTime` engine that `Create` picks on the host; other SIMD engines rely on parity.
 - Tests skip engines the host cannot run (AVX-512, ARM64), so a green local run proves nothing for them. The AVX-512 engine has run on AVX-512 hardware in CI, first on an Intel Xeon Platinum 8370C, and runs there whenever a runner supports the engine, meaning AVX-512F, BW, CD, DQ, VL and GFNI: the `default` Ubuntu leg probes the CPU, and a guard test fails the leg if the probe and the runtime disagree. That coverage is opportunistic; `scripts/test-sde` is the deterministic path and runs the tests under Intel SDE by hand. CI fails the ARM64 leg if its ARM64 tests do not run.
-- Official AES vectors from NIST, IEEE 1619 and RFCs never change to make a test pass. Frozen MKV mode vectors are project-computed and may change with the reason in the commit.
+- Official AES vectors from NIST, IEEE 1619 and RFCs never change to make a test pass. Frozen MKV mode vectors are project-computed and may change with the reason in the commit. The GCM streaming vector is the exception: it changes only with a format fix or an algorithm change, and either change is breaking and needs a major version.
 
 ## Constant-time and performance rules
 
 - `ConstantTime` paths, engines and modes never branch on or index memory by secret data: keys, round keys, H, tweaks, block state, tags and unwrapped key bytes. Branches test CPU flags or public values (lengths, block counts, revision, layer direction). `TableEngine` is the only variable-time engine; it backs `MkvEngine.VariableTime` and nothing else.
-- No heap allocation in round loops or span paths: scratch is `stackalloc` per call; tables are `static ReadOnlySpan<byte>` properties over constant data, or `static readonly` fields built once. The `byte[]` overloads allocate their result, and `DecryptCbc` also a scratch buffer of the ciphertext length, and `DecryptKeyWrapPadded` a scratch buffer of the ciphertext length minus 8, because the integrity check runs after unwrap. `MkvCtrHmac` is the one exception to the span-path rule: a call rents a pooled `IncrementalHash`, and the pool allocates only when concurrent calls outgrow it, so a warm single-threaded call allocates nothing.
+- No heap allocation in round loops or span paths: scratch is `stackalloc` per call; tables are `static ReadOnlySpan<byte>` properties over constant data, or `static readonly` fields built once. The `byte[]` overloads allocate their result, and `DecryptCbc` also a scratch buffer of the ciphertext length, and `DecryptKeyWrapPadded` a scratch buffer of the ciphertext length minus 8, because the integrity check runs after unwrap. `MkvCtrHmac` is the one exception to the span-path rule: a call rents a pooled `IncrementalHash`, and the pool allocates only when concurrent calls outgrow it, so a warm single-threaded call allocates nothing. `MkvGcmStreaming` is a second exception: each call allocates two pinned arrays, zeroed before it returns, for its segment buffers.
 - In encryption and decryption, virtual dispatch through `BlockEngine` happens at most once per block or batch, never per round; engine classes are sealed. The key schedule is the exception: it calls `engine.Round` 4R times, once per key.
 - Nothing enforces these rules but review: no analyzer or test checks allocation, dispatch or timing.
 - Measure before and after a performance change (`scripts/bench`); the benchmark project refuses non-optimized builds.
 
 ## API shape
 
-- The public API is synchronous and span-based, and there is no async API. An async member would need `Memory<T>` and a state machine, which breaks the no-allocation rule, and it buys no scalability: no mainstream crypto library offers async for in-memory operations, only for work that waits on I/O. Do not add one.
+- The public API of the core types is synchronous and span-based, with no async member. An async member would need `Memory<T>` and a state machine, which breaks the no-allocation rule, and it buys no scalability: no mainstream crypto library offers async for in-memory operations, only for work that waits on I/O. Do not add one to a core type.
 - Core types take and return spans, never `Stream` or `PipeReader`/`PipeWriter`. A caller loops over its own I/O and calls the span overloads, as `CryptoStream` and `CipherInputStream` exist to be avoided: they cannot carry AEAD, and they hide the final-block and authentication steps.
+- `MkvGcmStreaming` is the one type that takes `Stream`, because it owns the segment read loop. It offers async overloads because it waits on I/O. Do not add a `Stream` subclass or `PipeReader`/`PipeWriter` overload.
 
 ## Legal wording
 
