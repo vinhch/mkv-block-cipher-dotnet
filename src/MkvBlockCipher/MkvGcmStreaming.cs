@@ -9,12 +9,11 @@ namespace MkvBlockCipher;
 /// plaintext only after its tag verifies.
 /// </summary>
 /// <remarks>
-/// Wire format: each segment is its ciphertext then its tag; every segment but the last holds <c>segmentSizeBytes</c>
-/// of ciphertext, and the last holds 0 to that many. No header or length prefix. Input that is an exact multiple of the
+/// Wire format: each segment is its ciphertext then its tag; every segment but the last holds <c>segmentSizeBytes</c> of
+/// ciphertext, and the last holds 0 to that many. No header or length prefix. Input that is an exact multiple of the
 /// segment size ends in a full final segment; empty input is one tag.
-/// Use one key and one nonce prefix per stream: derive a key per stream (HKDF-SHA256 with a stored random salt), or use
-/// prefixes that never repeat under the key. A stream holds at most 2^32 segments.
-/// Nothing stops a rollback to an older complete stream under the same key, prefix and associated data.
+/// Use one key and one nonce prefix per stream: derive a key per stream (HKDF-SHA256 with a stored random salt), or use prefixes that never repeat under the key.
+/// A stream holds at most 2^32 segments. Nothing stops a rollback to an older complete stream under the same key, prefix and associated data.
 /// </remarks>
 public static class MkvGcmStreaming
 {
