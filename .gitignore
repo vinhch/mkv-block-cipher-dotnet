@@ -533,3 +533,5 @@ test-output.txt
 
 # Verify (snapshot testing): a pending snapshot not yet accepted into a *.verified.* file
 *.received.*
+
+/docs/superpowers/
