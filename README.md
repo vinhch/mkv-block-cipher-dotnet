@@ -17,6 +17,7 @@ The `.nupkg` and `.snupkg` land in `src/MkvBlockCipher/bin/Release/`.
 ## Quick start
 
 ```csharp
+using System.IO;
 using System.Security.Cryptography;
 using MkvBlockCipher;
 
@@ -176,7 +177,7 @@ CCM (SP 800-38C) with MKV-128 as the block cipher: authenticated encryption with
 
 ## Advanced usage
 
-- **Allocation.** The span overloads allocate nothing per call, except that `MkvCtrHmac` allocates when concurrent calls grow its pool, and `MkvGcmStreaming` allocates two pinned buffers per call. The `byte[]` overloads allocate the result. Create one cipher per key and reuse it.
+- **Allocation.** The span overloads allocate nothing per call, except that `MkvCtrHmac` allocates when concurrent calls grow its pool, and `MkvGcmStreaming` allocates at least two pinned buffers per call; its async overloads can allocate more. The `byte[]` overloads allocate the result. Create one cipher per key and reuse it.
 - **Output sizes.** Use `BlockSizeBytes` for one block, `GetCiphertextLengthCbc` for CBC, `GetKeyWrapPaddedLength` for KWP, and the input length for CBC ciphertext stealing. The `Try` methods return `false` and write nothing when the destination is too short. The other overloads throw `ArgumentException`.
 - **In-place.** The same start for source and destination is allowed in every mode. Partial overlap throws.
 - **Counters.** `TransformCtr` takes an initial counter of one block. A call whose counter would wrap past all-ones throws before it writes anything.
