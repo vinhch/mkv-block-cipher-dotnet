@@ -9,13 +9,12 @@ namespace MkvBlockCipher;
 /// plaintext only after its tag verifies.
 /// </summary>
 /// <remarks>
-/// Wire format: each segment is its ciphertext then its tag. Every segment but the last holds <c>segmentSizeBytes</c> of
-/// ciphertext; the last holds 0 to <c>segmentSizeBytes</c>. There is no header and no length prefix. Input that is an
-/// exact multiple of the segment size ends in a full final segment, and empty input is one tag. The segment size and
-/// <c>associatedData</c> are not stored: encrypt and decrypt must pass the same values. Use one key and one nonce prefix
-/// per stream: derive a key per stream (HKDF-SHA256 with a stored random salt) or use prefixes that never repeat under the
-/// key. A stream holds at most 2^32 segments. Nothing stops a rollback to an older complete stream under the same key,
-/// prefix and associated data.
+/// Wire format: each segment is its ciphertext then its tag; every segment but the last holds <c>segmentSizeBytes</c>
+/// of ciphertext, and the last holds 0 to that many. No header or length prefix. Input that is an exact multiple of the
+/// segment size ends in a full final segment; empty input is one tag.
+/// Use one key and one nonce prefix per stream: derive a key per stream (HKDF-SHA256 with a stored random salt), or use
+/// prefixes that never repeat under the key. A stream holds at most 2^32 segments.
+/// Nothing stops a rollback to an older complete stream under the same key, prefix and associated data.
 /// </remarks>
 public static class MkvGcmStreaming
 {
@@ -41,7 +40,8 @@ public static class MkvGcmStreaming
     /// <exception cref="ArgumentNullException"><paramref name="gcm"/>, <paramref name="source"/> or <paramref name="destination"/> is null.</exception>
     /// <exception cref="ArgumentException">
     /// <paramref name="noncePrefix"/> is not 7 bytes, <paramref name="source"/> is not readable, <paramref name="destination"/>
-    /// is not writable, or the input needs more than 2^32 segments. Nothing is written for the argument errors.
+    /// is not writable. Nothing is read or written for these. The 2^32-segment error is raised when the limit is reached,
+    /// after earlier segments were written; discard them.
     /// </exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="segmentSizeBytes"/> is out of range.</exception>
     /// <exception cref="ObjectDisposedException"><paramref name="gcm"/> has been disposed.</exception>
