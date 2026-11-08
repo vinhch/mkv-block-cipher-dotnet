@@ -49,6 +49,11 @@ Some facts are copied across files and must change together:
 - Nothing enforces these rules but review: no analyzer or test checks allocation, dispatch or timing.
 - Measure before and after a performance change (`scripts/bench`); the benchmark project refuses non-optimized builds.
 
+## API shape
+
+- The public API is synchronous and span-based, and there is no async API. An async member would need `Memory<T>` and a state machine, which breaks the no-allocation rule, and it buys no scalability: no mainstream crypto library offers async for in-memory operations, only for work that waits on I/O. Do not add one.
+- Core types take and return spans, never `Stream` or `PipeReader`/`PipeWriter`. A caller loops over its own I/O and calls the span overloads, as `CryptoStream` and `CipherInputStream` exist to be avoided: they cannot carry AEAD, and they hide the final-block and authentication steps.
+
 ## Legal wording
 
 - For MKV reference material: describe sources only in general terms: "publicly available reference material" or "publicly announced information".

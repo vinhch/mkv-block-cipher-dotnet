@@ -176,4 +176,28 @@ public sealed class MkvXtsTests
         Assert.Throws<ObjectDisposedException>(() => xts.Encrypt(1, plaintext, buffer));
         Assert.Throws<ObjectDisposedException>(() => xts.Decrypt(1, plaintext, buffer));
     }
+
+    [Fact]
+    public void Concurrent_calls_agree()
+    {
+        using MkvXts xts = new(SeededBytes(32, 21));
+        byte[] plaintext = SeededBytes(4096, 22);
+        byte[] expected = new byte[plaintext.Length];
+        xts.Encrypt(7, plaintext, expected);
+
+        Parallel.For(0, 200, call =>
+        {
+            byte[] output = new byte[plaintext.Length];
+            if (call % 2 == 0)
+            {
+                xts.Encrypt(7, plaintext, output);
+                Assert.Equal(expected, output);
+            }
+            else
+            {
+                xts.Decrypt(7, expected, output);
+                Assert.Equal(plaintext, output);
+            }
+        });
+    }
 }
