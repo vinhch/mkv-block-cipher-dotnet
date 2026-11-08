@@ -80,7 +80,7 @@ internal sealed class TrickleStream : Stream
 
     public override long Position
     {
-        get => throw new NotSupportedException();
+        get => _position;
         set => throw new NotSupportedException();
     }
 
