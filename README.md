@@ -86,7 +86,7 @@ Block cipher and modes under one key. Implements `IDisposable`.
 
 | Member | Notes |
 | --- | --- |
-| `MkvCipher(MkvBlockSize, ReadOnlySpan<byte> key, MkvRevision = Rev2025, MkvEngine = ConstantTime)` | Runs the key schedule once. The key is not kept |
+| `MkvCipher(MkvBlockSize, ReadOnlySpan<byte> key, MkvRevision = Rev2025, MkvEngine = ConstantTime)` | Runs the key schedule once. The key is not stored separately: `RK[0]` is the first half of the completed key, which is the whole key for a 4-word key |
 | `int BlockSizeBytes` | 16 or 32 |
 | `void EncryptBlock(source, destination)`, `void DecryptBlock(source, destination)` | One block, no mode |
 | `int GetCiphertextLengthCbc(int plaintextLength, PaddingMode paddingMode = PKCS7)` | CBC output size. PKCS#7 always adds between 1 and `BlockSizeBytes` bytes. `PaddingMode.None` returns the input length and rejects a partial block |

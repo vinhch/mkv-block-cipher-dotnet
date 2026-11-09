@@ -29,7 +29,7 @@ Vector registers are not cleared after use, zmm registers included, as with the 
 
 ## Key handling
 
-- The constructor expands the key once into round keys and keeps no copy of the key.
+- The constructor expands the key once into round keys and keeps no separate copy of the key. The key bytes are still present in `RK[0]`, which is the first half of the completed key, and that is the whole key for a 4-word key. Treat the round keys as secret for that reason.
 - Round keys sit in a pinned array, so the GC cannot compact the array and leave an unzeroed copy behind.
 - `Dispose` zeroes the round keys. Every method then throws `ObjectDisposedException`. A second `Dispose` does nothing.
 - `MkvCtrHmac` takes a 32-byte key and derives two keys with HKDF-SHA256 and an empty salt: one for the cipher and one for the MAC. Each info string names its purpose, block size and revision. The cipher key is zeroed after construction. The MAC key sits in a pinned array until `Dispose` zeroes it, and each pooled HMAC state keeps its own copy until `Dispose` releases it.

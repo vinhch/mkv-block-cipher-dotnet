@@ -2,6 +2,46 @@
 
 The MKV block cipher as this library computes it: notation, block layout, round function, key schedule, revisions, the fixed tables with their constructions, and test vectors. Everything needed to implement and check the cipher is on this page.
 
+## How the parts fit
+
+The sections below describe one flow: a key and a block of data go in, a block of ciphertext comes out. The flow has two tiers. The set-up tier runs once for each key and produces the round keys. The per-block tier runs once for each block and uses them.
+
+    Set up once per key
+
+      parameters
+        in:  block size, key length, revision
+        out: B, t, R, the MixWords rotation step, and whether the
+             key schedule uses round constants
+             |
+             v
+      key schedule
+        in:  key, parameters, S, SI, M, inverse(M)
+        out: RK[0..2R], each B bytes
+
+The caller picks the block size, the key length and the revision, and everything else follows from them, including `R`; the key length must be 4, 6 or 8 words for the block size. The tables are fixed constants that no key or data changes: S and SI are the same for every parameter set, and M is M4 or M8 according to `t`. The key schedule is the only stage that reads key bytes. It completes a short key to eight words, then runs F `4R` times to produce `RK[0..2R]`. The key is not stored on its own, but it is not erased either: `RK[0]` is the first half of the completed key, which is the whole key for a 4-word key.
+
+The two tiers meet at one secret value: `RK[0..2R]` is the set-up tier's whole output and the per-block tier's whole key input. The per-block tier also needs `t`, `R` and the MixWords rotation step from the parameters, since the round function cannot choose between M4 and M8 or between the two revisions without them. The tables cross over too, but they are constants rather than state, so nothing has to carry them across.
+
+    Run once per block
+
+      in:  plaintext block, RK[0..2R], t, R, the rotation step
+             |
+             v
+      round (F), repeated R times
+        in:  block X, round keys K0 and K1
+        out: block X, in place
+             |
+             v
+      final key addition
+        in:  block, RK[2R]
+        out: ciphertext block
+
+Encryption runs the rounds in order, then the final key addition. Decryption runs the per-block tier backwards.
+
+The tiers divide the work. The set-up tier never sees plaintext or ciphertext; the per-block tier never reads the key as such, only the round keys. A caller who encrypts many blocks under one key pays for the set-up tier once and the per-block tier per block.
+
+Modes call the block step and build on its output; they add nothing to the cipher itself. They belong to the public API, not to this page.
+
 ## Notation
 
 | Symbol | Meaning |

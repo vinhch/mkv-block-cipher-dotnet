@@ -6,8 +6,8 @@ namespace MkvBlockCipher;
 
 /// <summary>
 /// Keyed cipher for 128-bit or 256-bit blocks: single-block methods, and CBC and CTR over data of any length. The key
-/// is expanded once in the constructor and not kept. Concurrent calls to the block, CBC and CTR methods are safe after
-/// construction; Dispose must not overlap them.
+/// is expanded once in the constructor and not stored separately; RK[0] is the first half of the completed key.
+/// Concurrent calls to the block, CBC and CTR methods are safe after construction; Dispose must not overlap them.
 /// </summary>
 public sealed partial class MkvCipher : IDisposable
 {
