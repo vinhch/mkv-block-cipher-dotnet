@@ -3,12 +3,26 @@ updates:
   - package-ecosystem: nuget
     directory: "/"
     schedule: { interval: weekly }
+    # SourceLink is versioned like the SDK (10.0.404 matches SDK 10.0.404), and its major sets the runtime the
+    # build task targets (10.x net8.0, 11.0.100 net10.0). It stays on the major of the SDK pinned in global.json;
+    # a major moves by hand together with the SDK.
+    # coverlet.MTP 10.x pins Microsoft.Extensions.* 10.0.x, so its major looks tied to the .NET major (inferred from
+    # the version history and nuspec, no 11.x yet). It stays on the TargetFramework major.
+    ignore:
+      - dependency-name: "Microsoft.SourceLink.GitHub"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "coverlet.MTP"
+        update-types: ["version-update:semver-major"]
     # Fold minor+patch into one PR; majors stay separate so breaking bumps get individual review.
     # A package joins the FIRST group whose patterns match it, so xunit-lockstep must come first:
     # the xunit* family exact-pins each other and a lone member bump fails restore (NU1608).
+    # BenchmarkDotNet is 0.x, where Dependabot treats 0.15 to 0.16 as a minor and a breaking release
+    # would fail the shared PR, so it gets its own group above nuget-minor-patch.
     groups:
       xunit-lockstep:
         patterns: ["xunit*"]
+      benchmarkdotnet:
+        patterns: ["BenchmarkDotNet*"]
       nuget-minor-patch:
         update-types: ["minor", "patch"]
         exclude-patterns: ["xunit*"]

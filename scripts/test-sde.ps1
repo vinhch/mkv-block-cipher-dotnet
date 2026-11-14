@@ -10,7 +10,9 @@ if (-not $env:SDE_PATH) {
 dotnet build tests/MkvBlockCipher.Tests/MkvBlockCipher.Tests.csproj -c Release
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-$exe = "tests/MkvBlockCipher.Tests/bin/Release/net10.0/MkvBlockCipher.Tests"
+$tfm = (Select-Xml -Path Directory.Build.props -XPath '//TargetFramework').Node.InnerText
+if (-not $tfm) { throw "TargetFramework not found in Directory.Build.props." }
+$exe = "tests/MkvBlockCipher.Tests/bin/Release/$tfm/MkvBlockCipher.Tests"
 if ($IsWindows) { $exe += ".exe" }
 
 # Knobs this script controls. Each run sets its own values and removes the other names in this list ($null removes an Env: variable),

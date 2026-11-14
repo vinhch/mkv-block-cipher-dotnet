@@ -32,6 +32,7 @@ Some facts are copied across files and must change together:
 - Benchmark numbers: `docs/benchmarks.md` and the README Benchmarks section. Only `docs/benchmarks.md` notes that the numbers predate the current kernels.
 - AVX-512 engine status: README Engines, the README CI paragraph, `docs/security.md` and the Correctness rules below.
 - Rev2025 vectors: `docs/algorithm.md`, `Rev2025Vectors.cs`, `samples/MkvBlockCipher.AotSmoke/Program.cs`.
+- Target framework: `Directory.Build.props`, `global.json` (the SDK must support it), the SourceLink and `coverlet.MTP` majors in `Directory.Packages.props`, the ".NET 10" knob comment in the `test-sde` scripts, the README Installation section and the intro of this file.
 - Disclaimer wording: `DISCLAIMER.md`, the `LICENSE` "No warranty or liability" section and the README "About this implementation" section.
 
 ## Correctness rules
@@ -91,6 +92,16 @@ The SDK is pinned in `global.json`. Warnings are errors in every project (`Direc
 Scripts come in `.sh` and `.ps1` pairs with the same arguments; change both together. Two known differences: `coverage.ps1` does not forward extra arguments, and `aot-smoke` publishes for linux-x64 in `.sh` and win-<arch> in `.ps1`.
 
 CI in `.github/workflows/`: `build.yml` (Ubuntu, Windows, macOS), `test.yml` (test legs for default, scalar, GFNI-off, AVX2-off and AVX2-and-GFNI-off kernels plus ARM64 macOS, then coverage and AOT smoke jobs), `lint.yml`, and `release.yml` (packs on a `v*` tag).
+
+## Dependencies
+
+Versions live in `Directory.Packages.props`; `.github/dependabot.yml` opens the update PRs and its comments give the reason for each group and ignore rule.
+
+- A package joins the first Dependabot group whose pattern matches it, so group order in `dependabot.yml` matters: `xunit-lockstep`, then `benchmarkdotnet`, then `nuget-minor-patch`.
+- `xunit.v3` runs on Microsoft.Testing.Platform (the runner is set in `global.json`); do not add `Microsoft.NET.Test.Sdk` or the VSTest adapter. Its inner packages exact-pin each other, so reference only `xunit.v3`.
+- `BenchmarkDotNet` has its own group because 0.x minors can break.
+- Dependabot ignores the majors of `Microsoft.SourceLink.GitHub` and `coverlet.MTP`; move them by hand together with the SDK or target framework. For SourceLink this follows from its SDK-style versioning. For `coverlet.MTP` it is a precaution inferred from its nuspec, not a verified requirement.
+- The target framework is set in `Directory.Build.props`; the `test-sde` scripts read it from there.
 
 ## Commits
 

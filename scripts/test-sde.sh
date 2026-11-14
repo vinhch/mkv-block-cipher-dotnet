@@ -8,7 +8,12 @@ if [[ -z "${SDE_PATH:-}" ]]; then
 fi
 
 dotnet build tests/MkvBlockCipher.Tests/MkvBlockCipher.Tests.csproj -c Release
-exe=tests/MkvBlockCipher.Tests/bin/Release/net10.0/MkvBlockCipher.Tests
+tfm=$(sed -n 's:.*<TargetFramework>\(.*\)</TargetFramework>.*:\1:p' Directory.Build.props)
+if [[ -z "$tfm" ]]; then
+  echo "TargetFramework not found in Directory.Build.props." >&2
+  exit 1
+fi
+exe=tests/MkvBlockCipher.Tests/bin/Release/$tfm/MkvBlockCipher.Tests
 if [[ -f "$exe.exe" ]]; then
   exe="$exe.exe"
 fi
