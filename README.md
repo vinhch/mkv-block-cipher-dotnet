@@ -1,4 +1,4 @@
-# MkvBlockCipher
+# MkvBlockCipher ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/vinhch/mkv-block-cipher-dotnet/test.yml?branch=main)
 
 MkvBlockCipher is a .NET library for the MKV block cipher, with 128-bit and 256-bit blocks, CBC (padded, unpadded or ciphertext stealing) and CTR modes, an authenticated mode (CTR with HMAC-SHA256), GCM (SP 800-38D authenticated encryption with segmented streams, 128-bit blocks only), CCM (SP 800-38C authenticated encryption, 128-bit blocks only), MKV key wrap (KW and KWP, 128-bit blocks only), and XTS (IEEE 1619 sector encryption, 128-bit blocks only).
 
