@@ -229,7 +229,7 @@ Requirements: the .NET SDK pinned in `global.json`, 10.0.100 or a later 10.0 fea
 | Script | Does |
 | --- | --- |
 | `scripts/build.sh [Debug\|Release]` | Builds the solution. Default `Debug` |
-| `scripts/test.sh [Debug\|Release] [args]` | Runs the tests. Default `Debug`. Extra arguments go to `dotnet test`; CI adds `--report-github` |
+| `scripts/test.sh [Debug\|Release] [args]` | Runs the tests. Default `Debug`. Extra arguments go to `dotnet test`; CI adds a GitHub summary without passed tests and a TRX report |
 | `scripts/coverage.sh [Debug\|Release]` | Runs the tests with coverage and writes an HTML report to `artifacts/coverage/report/`. Default `Release` |
 | `scripts/lint.sh` | `dotnet format --verify-no-changes` |
 | `scripts/bench.sh [args]` | Runs the BenchmarkDotNet suite. See [docs/benchmarks.md](docs/benchmarks.md) |
@@ -243,7 +243,7 @@ benchmarks/                   BenchmarkDotNet project
 docs/                         algorithm, security and benchmark notes
 ```
 
-CI runs in `.github/workflows`. Build runs on Ubuntu, Windows and macOS. Test runs on Ubuntu with the default kernels and with the scalar, GFNI-off, AVX2-off and AVX2-and-GFNI-off paths, plus an ARM64 macOS leg that fails if its ARM64 tests do not run. The `default` Ubuntu leg also probes its runner for the AVX-512 flags the engine needs and records the result in the job summary; the AVX-512 guard tests run only when the engine is eligible. Coverage, lint and the native AOT smoke publish run as their own jobs. All of these run on pushes and pull requests to `main`. Pushing a tag `vX.Y.Z`, optionally with a `-suffix`, packs the library and creates a GitHub Release without the `.nupkg` attached. No package is published anywhere.
+CI runs in `.github/workflows`. Build runs on Ubuntu, Windows and macOS. Test runs on Ubuntu with the default kernels and with the scalar, GFNI-off, AVX2-off and AVX2-and-GFNI-off paths, plus an ARM64 macOS leg that fails if its ARM64 tests do not run. Each test leg's job summary lists failed and skipped tests only; the full results are uploaded as a TRX artifact per leg. The `default` Ubuntu leg also probes its runner for the AVX-512 flags the engine needs and records the result in the job summary; the AVX-512 guard tests run only when the engine is eligible. Coverage, lint and the native AOT smoke publish run as their own jobs. All of these run on pushes and pull requests to `main`. Pushing a tag `vX.Y.Z`, optionally with a `-suffix`, packs the library and creates a GitHub Release without the `.nupkg` attached. No package is published anywhere.
 
 ## About this implementation
 

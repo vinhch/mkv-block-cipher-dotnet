@@ -69,8 +69,20 @@ jobs:
             echo "::notice::CPU $model does not support the AVX-512 engine, which needs AVX-512F, BW, CD, DQ, VL and GFNI; this run does not cover it."
             echo "AVX-512 engine: not eligible, $model" >> "$GITHUB_STEP_SUMMARY"
           fi
+      # Passed tests stay out of the summary: GitHub drops a step summary over 1 MiB, and the skipped
+      # list is what tells the legs apart. The TRX uploaded below keeps the passed tests.
       - name: Test
-        run: bash scripts/test.sh Release --report-github
+        run: >
+          bash scripts/test.sh Release --report-github
+          --report-github-summary-include-passed false
+          --report-xunit-trx --results-directory artifacts/test-results
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: test-results-${{ matrix.leg }}
+          path: artifacts/test-results/*.trx
+          if-no-files-found: error
       # The probe's MKV_EXPECT_ENGINE must actually reach an assertion. A skipped probe would
       # leave every guard test skipped and the leg green, so this reruns the class and reads
       # the TRX for the one test that proves the expectation was checked.
@@ -112,8 +124,10 @@ jobs:
         with: { persist-credentials: false }
       - uses: ./.github/actions/repo-setup
       # The script owns the report-count guard, so a local run gets the same check.
+      # The test summary is the default leg's job. Omitting --report-github is not enough: the logger
+      # enables itself under Actions, so it is turned off explicitly.
       - name: Test + coverage report
-        run: bash scripts/coverage.sh Release --report-github
+        run: bash scripts/coverage.sh Release --report-github false
       - name: Coverage summary
         run: cat artifacts/coverage/report/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
