@@ -1,6 +1,6 @@
 # MkvBlockCipher ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/vinhch/mkv-block-cipher-dotnet/test.yml?branch=main)
 
-MkvBlockCipher is a .NET library for the MKV block cipher, with 128-bit and 256-bit blocks, CBC (padded, unpadded or ciphertext stealing) and CTR modes, an authenticated mode (CTR with HMAC-SHA256), GCM (SP 800-38D authenticated encryption with segmented streams, 128-bit blocks only), CCM (SP 800-38C authenticated encryption, 128-bit blocks only), MKV key wrap (KW and KWP, 128-bit blocks only), and XTS (IEEE 1619 sector encryption, 128-bit blocks only).
+MkvBlockCipher is a .NET library for the MKV block cipher, with 128-bit and 256-bit blocks, CBC (padded, unpadded or ciphertext stealing) and CTR modes, an authenticated mode (CTR with HMAC-SHA256), GCM (SP 800-38D authenticated encryption with segmented streams, 128-bit blocks only), CCM (SP 800-38C authenticated encryption, 128-bit blocks only), MKV key wrap (KW and KWP, 128-bit blocks only), and XTS (IEEE 1619 sector encryption, 128-bit blocks only). The block cipher takes 128, 192 or 256-bit keys on 128-bit blocks and 256, 384 or 512-bit keys on 256-bit blocks; each mode type states its own key length in the [API reference](#api-reference).
 
 This is an unofficial implementation and has not been audited. Read [DISCLAIMER.md](DISCLAIMER.md) and [docs/security.md](docs/security.md) before you protect data with it.
 
@@ -21,7 +21,7 @@ using System.IO;
 using System.Security.Cryptography;
 using MkvBlockCipher;
 
-byte[] key = RandomNumberGenerator.GetBytes(32);   // valid for both block sizes
+byte[] key = RandomNumberGenerator.GetBytes(32);   // 32 bytes = 256 bits, valid for both block sizes
 byte[] message = "hello"u8.ToArray();
 
 using (var cipher = new MkvCipher(MkvBlockSize.Mkv128, key))
@@ -78,7 +78,12 @@ Namespace `MkvBlockCipher`. Every type and member has XML documentation; this se
 | `MkvRevision` | `Rev2024`, `Rev2025` (default). See [Revisions](#revisions) |
 | `MkvEngine` | `ConstantTime` (default), `VariableTime`. See [Engines](#engines) |
 
-Key lengths are 16, 24 or 32 bytes for `Mkv128`, and 32, 48 or 64 bytes for `Mkv256`.
+`MkvCipher` key lengths per block size. The other types state their own key length below.
+
+| Block size | Key bytes | Key bits |
+| --- | --- | --- |
+| `Mkv128` | 16, 24, 32 | 128, 192, 256 |
+| `Mkv256` | 32, 48, 64 | 256, 384, 512 |
 
 ### MkvCipher
 

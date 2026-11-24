@@ -18,7 +18,7 @@ The sections below describe one flow: a key and a block of data go in, a block o
         in:  key, parameters, S, SI, M, inverse(M)
         out: RK[0..2R], each B bytes
 
-The caller picks the block size, the key length and the revision, and everything else follows from them, including `R`; the key length must be 4, 6 or 8 words for the block size. The tables are fixed constants that no key or data changes: S and SI are the same for every parameter set, and M is M4 or M8 according to `t`. The key schedule is the only stage that reads key bytes. It completes a short key to eight words, then runs F `4R` times to produce `RK[0..2R]`. The key is not stored on its own, but it is not erased either: `RK[0]` is the first half of the completed key, which is the whole key for a 4-word key.
+The caller picks the block size, the key length and the revision, and everything else follows from them, including `R`; the key length must be 4, 6 or 8 words for the block size, listed in bytes and bits under [Revisions](#revisions). The tables are fixed constants that no key or data changes: S and SI are the same for every parameter set, and M is M4 or M8 according to `t`. The key schedule is the only stage that reads key bytes. It completes a short key to eight words, then runs F `4R` times to produce `RK[0..2R]`. The key is not stored on its own, but it is not erased either: `RK[0]` is the first half of the completed key, which is the whole key for a 4-word key.
 
 The two tiers meet at one secret value: `RK[0..2R]` is the set-up tier's whole output and the per-block tier's whole key input. The per-block tier also needs `t`, `R` and the MixWords rotation step from the parameters, since the round function cannot choose between M4 and M8 or between the two revisions without them. The tables cross over too, but they are constants rather than state, so nothing has to carry them across.
 
@@ -116,7 +116,7 @@ The key fills eight words, k0 to k7, of `t` bytes each. A key of eight words fil
 
     k(w) = complement(k(w-4))    for each missing word w >= 4
 
-So a 4-word key (16 bytes for `Mkv128`, 32 bytes for `Mkv256`) gives k4 to k7 as complements of k0 to k3. A 6-word key (24 or 48 bytes) gives k6 and k7 as complements of k2 and k3.
+So a 4-word key (16 bytes or 128 bits for `Mkv128`, 32 bytes or 256 bits for `Mkv256`) gives k4 to k7 as complements of k0 to k3. A 6-word key (24 bytes or 192 bits, 48 bytes or 384 bits) gives k6 and k7 as complements of k2 and k3.
 
 Split the key into two halves: P0 = k0 to k3 and Q0 = k4 to k7. Define:
 
@@ -149,9 +149,9 @@ This section lists the parts that differ between the two revisions. The rest of 
 
 | Part | Rev2024 | Rev2025 |
 | --- | --- | --- |
-| Round count R, 4-word key (`Mkv128` 16 bytes, `Mkv256` 32 bytes) | 6 | 7 |
-| Round count R, 6-word key (`Mkv128` 24 bytes, `Mkv256` 48 bytes) | 7 | 8 |
-| Round count R, 8-word key (`Mkv128` 32 bytes, `Mkv256` 64 bytes) | 8 | 9 |
+| Round count R, 4-word key (`Mkv128` 16 bytes or 128 bits, `Mkv256` 32 bytes or 256 bits) | 6 | 7 |
+| Round count R, 6-word key (`Mkv128` 24 bytes or 192 bits, `Mkv256` 48 bytes or 384 bits) | 7 | 8 |
+| Round count R, 8-word key (`Mkv128` 32 bytes or 256 bits, `Mkv256` 64 bytes or 512 bits) | 8 | 9 |
 | MixWords rotation | None | Per word, see [Round function](#round-function) |
 | Key-schedule constants | None: K(c) = ctr(c) | C0 and C1, see [Key schedule](#key-schedule) |
 
@@ -214,42 +214,42 @@ Each vector lists the key, the plaintext and the ciphertext as hex in byte order
 
 Rev2025. The six ciphertexts, the six RK[1] prefixes and the last round key for `Mkv256` with a 32-byte key come from publicly available reference material. The other five last round keys are computed by this project and serve as regression values.
 
-    Rev2025, Mkv128, 16-byte key
+    Rev2025, Mkv128, 16-byte (128-bit) key
     Key         000102030405060708090A0B0C0D0E0F
     Plaintext   FFEEDDCCBBAA99887766554433221100
     Ciphertext  F2795ECBA8F4D887F539EE8D8DF1141D
     RK[1] first 8 bytes D55F9779EFA06276
     RK[14]      AA89FB1AFDE0CBECDDB03D41CE3E5F00
 
-    Rev2025, Mkv128, 24-byte key
+    Rev2025, Mkv128, 24-byte (192-bit) key
     Key         000102030405060708090A0B0C0D0E0F1011121314151617
     Plaintext   FFEEDDCCBBAA99887766554433221100
     Ciphertext  D8E0A9A2994B4622D837676B7A54BFE2
     RK[1] first 8 bytes 1974492A8DE8FEE7
     RK[16]      8B2AA5F3A9E1C2573284E4AA4115A620
 
-    Rev2025, Mkv128, 32-byte key
+    Rev2025, Mkv128, 32-byte (256-bit) key
     Key         000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F
     Plaintext   FFEEDDCCBBAA99887766554433221100
     Ciphertext  893F15625E29414002725C12781A7A34
     RK[1] first 8 bytes 0245745DDFEA1357
     RK[18]      F1C80EAEF2DD216FD182F2002C83A271
 
-    Rev2025, Mkv256, 32-byte key
+    Rev2025, Mkv256, 32-byte (256-bit) key
     Key         000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F
     Plaintext   FFEEDDCCBBAA99887766554433221100FFEEDDCCBBAA99887766554433221100
     Ciphertext  24EB2357EABAE02C8E2C9E497125DE8AF0B43EF000BF15FF20E091B0DE08893D
     RK[1] first 8 bytes D511DC576D930D91
     RK[14]      1C90E6439CA60AA2A6E40143A00447F9D8FDB7AFB118ED613ACD720BD59467DF
 
-    Rev2025, Mkv256, 48-byte key
+    Rev2025, Mkv256, 48-byte (384-bit) key
     Key         000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F202122232425262728292A2B2C2D2E2F
     Plaintext   FFEEDDCCBBAA99887766554433221100FFEEDDCCBBAA99887766554433221100
     Ciphertext  C2B27F34B9E38857D1E1C345817D04047677335009526ABCC9212CB9BBF26374
     RK[1] first 8 bytes A5C8F69EB97064DE
     RK[16]      BBC4A411CECC2B583B07A8E5113FD30D248D41412A9EA47D5120C5F25120177C
 
-    Rev2025, Mkv256, 64-byte key
+    Rev2025, Mkv256, 64-byte (512-bit) key
     Key         000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F202122232425262728292A2B2C2D2E2F303132333435363738393A3B3C3D3E3F
     Plaintext   FFEEDDCCBBAA99887766554433221100FFEEDDCCBBAA99887766554433221100
     Ciphertext  3DAD4F9B1330C6111CED631DDDF6E3EEA0678D10DD7B75A06B5BA602FCCA28AB
@@ -258,32 +258,32 @@ Rev2025. The six ciphertexts, the six RK[1] prefixes and the last round key for 
 
 Rev2024. The six vectors come from the earlier draft. The same source also gives the full round key sets and the intermediate values after each round step for both block sizes; this project keeps them as further known-answer data.
 
-    Rev2024, Mkv128, 16-byte key
+    Rev2024, Mkv128, 16-byte (128-bit) key
     Key         0102030405060708090A0B0C0D0E0F11
     Plaintext   112233445566778899AABBCCDDEEFF00
     Ciphertext  B331228334C3F81A37206591498756A1
 
-    Rev2024, Mkv128, 24-byte key
+    Rev2024, Mkv128, 24-byte (192-bit) key
     Key         0102030405060708090A0B0C0D0E0F111213141516171819
     Plaintext   112233445566778899AABBCCDDEEFF00
     Ciphertext  4A9FC1350AAFCCAE7CB5B12AE4B24F91
 
-    Rev2024, Mkv128, 32-byte key
+    Rev2024, Mkv128, 32-byte (256-bit) key
     Key         0102030405060708090A0B0C0D0E0F1112131415161718191A1B1C1D1E1F2223
     Plaintext   112233445566778899AABBCCDDEEFF00
     Ciphertext  5F16D17C48E40146559D602F50D6307E
 
-    Rev2024, Mkv256, 32-byte key
+    Rev2024, Mkv256, 32-byte (256-bit) key
     Key         0102030405060708090A0B0C0D0E0F1112131415161718191A1B1C1D1E1F2223
     Plaintext   112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00
     Ciphertext  CF2F2C1008186A578FE5B45DBD154473940C2BEC5682CDF83A3564A72DB0161B
 
-    Rev2024, Mkv256, 48-byte key
+    Rev2024, Mkv256, 48-byte (384-bit) key
     Key         0102030405060708090A0B0C0D0E0F1112131415161718191A1B1C1D1E1F22230102030405060708090A0B0C0D0E0F11
     Plaintext   112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00
     Ciphertext  731E244B25D8F7489D2E4BDEC8EAEE1796F55A26904EEDB22D96C2C17452739D
 
-    Rev2024, Mkv256, 64-byte key
+    Rev2024, Mkv256, 64-byte (512-bit) key
     Key         0102030405060708090A0B0C0D0E0F1112131415161718191A1B1C1D1E1F22230102030405060708090A0B0C0D0E0F1112131415161718191A1B1C1D1E1F2223
     Plaintext   112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00
     Ciphertext  93B442FB88D257FBE71256BE511AAB9B1F71A4DD524635A61019A12ACB262C85
